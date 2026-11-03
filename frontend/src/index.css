@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@layer components {
+  .field {
+    @apply flex flex-col gap-1 text-sm font-medium;
+  }
+  .input {
+    @apply rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm font-normal;
+  }
+  .btn-primary {
+    @apply rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply rounded-md border border-slate-300 bg-white px-3 py-1 text-sm hover:bg-slate-50 disabled:opacity-50;
+  }
+  .btn-citation {
+    @apply w-full rounded-md border border-slate-200 p-2 text-left text-sm hover:bg-slate-50;
+  }
+  .tab {
+    @apply -mb-px border-b-2 px-4 py-2 text-sm font-medium;
+  }
+  :where(button, input, select, textarea):focus-visible {
+    @apply outline-2 outline-offset-2 outline-blue-600;
+  }
+}

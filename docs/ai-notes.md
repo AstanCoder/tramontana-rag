@@ -14,3 +14,4 @@
 - Assumed `opentelemetry-instrumentation-sqlalchemy` supports SQLAlchemy 2.1 → it caps at `<2.1` and silently skips instrumenting (and `skip_dep_check` then fails importing greenlet); pinned `sqlalchemy>=2,<2.1` and switched `Select`/`Row` hints to the 2.0 `tuple[...]` form.
 - Did not expect FastAPI 0.162 to ship native OpenTelemetry → it traces any app once a global provider exists (and its logs carry exception text); disabled its tracing/logs and kept the contrib instrumentor, which excludes `/health`.
 - Gave each tracing test its own `InMemorySpanExporter` → the global tracer provider is set once per process, so later exporters got nothing; made the exporter module-scoped.
+- Took the latest `typescript` (7.0.2) as the frontend default → `typescript-eslint` 8.72 only supports `<6.1`, so pinned `typescript` 6.0.3.

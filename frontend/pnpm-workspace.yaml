@@ -1,0 +1,6 @@
+minimumReleaseAgeExclude:
+  - '@tailwindcss/node@4.3.4'
+  - '@tailwindcss/oxide-wasm32-wasi@4.3.4'
+  - '@tailwindcss/oxide-win32-arm64-msvc@4.3.4'
+  - '@tailwindcss/oxide@4.3.4'
+  - tailwindcss@4.3.4
