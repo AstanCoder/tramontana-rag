@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 from celery.exceptions import Retry, SoftTimeLimitExceeded
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from structlog.testing import capture_logs
 
@@ -296,3 +296,39 @@ def test_logs_contain_no_document_text(db_session: Session) -> None:
     dumped = repr(logs)
     for needle in ("12345678Z", "Daños", "Marta", "tubería", CLAIM_LETTER):
         assert needle not in dumped
+
+
+def test_task_replaced_mid_run_writes_nothing(db_session: Session) -> None:
+    doc = _doc(db_session, CLAIM_LETTER)
+
+    class RetriedDuringEmbed(MockGateway):
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            # What POST /retry does while the old task is still embedding.
+            db_session.execute(
+                update(Document)
+                .where(Document.id == doc.id)
+                .values(status=DocumentStatus.pending, ingest_task_id="t2")
+            )
+            db_session.commit()
+            return super().embed(texts)
+
+    run_ingestion(db_session, doc.id, "t1", RetriedDuringEmbed())
+
+    db_session.refresh(doc)
+    assert doc.status == DocumentStatus.pending
+    assert doc.ingest_task_id == "t2"
+    assert doc.page_count is None
+    assert _chunks(db_session, doc) == []
+
+
+def test_mark_failed_leaves_ready_document_alone(
+    db_session: Session, task_env: dict[str, Any]
+) -> None:
+    doc = _doc(db_session, CLAIM_LETTER)
+    run_ingestion(db_session, doc.id, "t1", MockGateway())
+
+    tasks._mark_failed(doc.id, "t1", "ingestion_timeout")
+
+    db_session.refresh(doc)
+    assert doc.status == DocumentStatus.ready
+    assert doc.error_code is None

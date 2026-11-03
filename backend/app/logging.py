@@ -1,7 +1,10 @@
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 import structlog
 from opentelemetry import trace
+from opentelemetry.trace import StatusCode
 from structlog.typing import EventDict, WrappedLogger
 
 
@@ -38,3 +41,17 @@ def configure_logging(level: str) -> None:
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     return structlog.get_logger(name)  # type: ignore[no-any-return]
+
+
+@contextmanager
+def content_free_span(tracer: trace.Tracer, name: str) -> Iterator[trace.Span]:
+    """Span that records only the exception type: messages may carry document or prompt text."""
+    with tracer.start_as_current_span(
+        name, record_exception=False, set_status_on_exception=False
+    ) as span:
+        try:
+            yield span
+        except Exception as exc:
+            span.set_status(StatusCode.ERROR)
+            span.set_attribute("error.type", type(exc).__name__)
+            raise

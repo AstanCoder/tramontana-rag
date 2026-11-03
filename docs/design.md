@@ -151,7 +151,7 @@ README.md, DECISIONS.md
    AND ingest_task_id=:task_id)) RETURNING`. Los reintentos y redeliveries de Celery conservan el mismo
    `task_id`, así que pueden continuar. Una tarea duplicada tiene otro id → no obtiene fila y termina sin
    hacer nada. `acks_late=True` + `reject_on_worker_lost=True`. `POST /retry` acepta `failed` o `processing`
-   con más de 15 min sin avanzar (tarea perdida), y genera un `task_id` nuevo.
+   con más de 20 min sin avanzar (tarea perdida; supera el límite duro de 960 s de la tarea), y genera un `task_id` nuevo.
 2. Docling `DocumentConverter` con OCR Tesseract (`spa`), modelos precargados en la imagen.
 3. `HybridChunker` (máx. 512 tokens, tokenizer HF precargado). Las tablas se serializan en markdown en su
    propio chunk (serializer provider con `MarkdownTableSerializer`; el formato por defecto es de tripletas);

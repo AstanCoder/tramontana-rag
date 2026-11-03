@@ -20,6 +20,7 @@ from opentelemetry import trace
 from pydantic import BaseModel
 
 from app.config import Settings, get_settings
+from app.logging import content_free_span
 
 EMBEDDING_DIMENSIONS = 768
 
@@ -70,7 +71,7 @@ class Gateway(Protocol):
 def llm_span(name: str, request_model: str) -> Iterator[Callable[[CompletionMeta], None]]:
     """Span without prompt content; the caller reports the outcome via the yielded callback."""
     started = time.perf_counter()
-    with _tracer.start_as_current_span(name) as span:
+    with content_free_span(_tracer, name) as span:
         span.set_attribute("gen_ai.request.model", request_model)
 
         def record(meta: CompletionMeta) -> None:

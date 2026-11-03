@@ -14,7 +14,8 @@ from app.schemas import DocumentOut
 
 log = get_logger(__name__)
 
-STALE_PROCESSING = timedelta(minutes=15)
+# Must exceed the ingest task's hard time limit (960 s) so a live task is never replaced.
+STALE_PROCESSING = timedelta(minutes=20)
 
 _chunk_count = (
     select(func.count(Chunk.id))

@@ -11,7 +11,7 @@ from app.guards import looks_like_injection, sanitize_untrusted
 from app.ingestion.chunking import ChunkDraft, chunk_document
 from app.ingestion.parsing import parse_pdf
 from app.llm.gateway import Gateway
-from app.logging import get_logger
+from app.logging import content_free_span, get_logger
 from app.models import Chunk, ChunkKind, DocType, Document, DocumentStatus
 from app.pii import extract_policy_number, redact
 
@@ -94,17 +94,33 @@ def run_ingestion(session: Session, document_id: uuid.UUID, task_id: str, gatewa
     session.commit()  # publish `processing` before the long parse/embed steps
     started = time.perf_counter()
 
-    with _tracer.start_as_current_span("ingest.parse") as span:
+    with content_free_span(_tracer, "ingest.parse") as span:
         doc = parse_pdf(Path(document.storage_path), get_settings().max_pages)
         span.set_attribute("pages", len(doc.pages))
-    with _tracer.start_as_current_span("ingest.chunk") as span:
+    with content_free_span(_tracer, "ingest.chunk") as span:
         drafts = chunk_document(doc)
         table_count = sum(d.kind == ChunkKind.table for d in drafts)
         span.set_attributes({"chunk_count": len(drafts), "table_count": table_count})
-    with _tracer.start_as_current_span("ingest.embed") as span:
+    with content_free_span(_tracer, "ingest.embed") as span:
         span.set_attribute("chunk_count", len(drafts))
         embeddings = gateway.embed([redact(sanitize_untrusted(d.embed_text)) for d in drafts])
 
+    # Re-check ownership under a row lock: /retry may have handed the document to a new task
+    # meanwhile, and the lock serializes any other writer of this document's chunks.
+    document = session.scalars(
+        select(Document)
+        .where(
+            Document.id == document_id,
+            Document.ingest_task_id == task_id,
+            Document.status == DocumentStatus.processing,
+        )
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).one_or_none()
+    if document is None:
+        session.rollback()
+        log.info("ingest.superseded", document_id=str(document_id))
+        return
     replace_chunks(session, document, drafts, embeddings)
     document.page_count = len(doc.pages)
     if document.policy_number is None:

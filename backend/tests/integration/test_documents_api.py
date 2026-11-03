@@ -134,11 +134,15 @@ def test_retry_only_from_failed_or_stale(
     now = datetime.now(UTC)
     ready = _doc(db_session, status=DocumentStatus.ready)
     failed = _doc(db_session, status=DocumentStatus.failed, error_code="corrupt_document")
-    fresh = _doc(db_session, status=DocumentStatus.processing, processing_started_at=now)
-    stale = _doc(
+    fresh = _doc(
         db_session,
         status=DocumentStatus.processing,
         processing_started_at=now - timedelta(minutes=16),
+    )
+    stale = _doc(
+        db_session,
+        status=DocumentStatus.processing,
+        processing_started_at=now - timedelta(minutes=21),
     )
 
     assert client.post(f"/api/documents/{ready.id}/retry").status_code == 409

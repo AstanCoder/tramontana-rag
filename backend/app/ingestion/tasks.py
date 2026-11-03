@@ -20,10 +20,14 @@ RETRY_JITTER_S = 5.0
 
 def _mark_failed(document_id: uuid.UUID, task_id: str, error_code: str) -> None:
     with session_scope() as session:
-        # Guarded by the owner token so a replaced task cannot fail its successor.
+        # Owner token + processing: never fail a successor's run or an already committed `ready`.
         session.execute(
             update(Document)
-            .where(Document.id == document_id, Document.ingest_task_id == task_id)
+            .where(
+                Document.id == document_id,
+                Document.ingest_task_id == task_id,
+                Document.status == DocumentStatus.processing,
+            )
             .values(status=DocumentStatus.failed, error_code=error_code)
         )
     log.warning("ingest.failed", document_id=str(document_id), error_code=error_code)

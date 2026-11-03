@@ -1,14 +1,18 @@
+import contextlib
 import functools
 import math
+from collections.abc import Iterator
 from typing import Literal
 
 import httpx
 import litellm
 import pytest
 from litellm.router import Router
+from opentelemetry.trace import StatusCode
 from pydantic import BaseModel
 
 from app.config import Settings
+from app.llm import gateway
 from app.llm.gateway import (
     LiteLLMGateway,
     LLMOutputInvalidError,
@@ -228,3 +232,41 @@ def test_embed_persistent_failure_is_provider_unavailable(
     with pytest.raises(ProviderUnavailableError):
         gw.embed(["a"])
     assert len(embed_calls) == 3  # first attempt + num_retries
+
+
+class _StubSpan:
+    def __init__(self) -> None:
+        self.status: object = None
+        self.attributes: dict[str, object] = {}
+
+    def set_status(self, status: object) -> None:
+        self.status = status
+
+    def set_attribute(self, key: str, value: object) -> None:
+        self.attributes[key] = value
+
+
+class _StubTracer:
+    def __init__(self) -> None:
+        self.span = _StubSpan()
+        self.kwargs: dict[str, object] = {}
+
+    @contextlib.contextmanager
+    def start_as_current_span(self, name: str, **kwargs: object) -> Iterator[_StubSpan]:
+        self.kwargs = kwargs
+        yield self.span
+
+
+def test_llm_span_records_error_type_but_no_exception_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tracer = _StubTracer()
+    monkeypatch.setattr(gateway, "_tracer", tracer)
+
+    with pytest.raises(ValueError), gateway.llm_span("llm.embed", "mock"):
+        raise ValueError("secret prompt text")
+
+    assert tracer.kwargs == {"record_exception": False, "set_status_on_exception": False}
+    assert tracer.span.status == StatusCode.ERROR
+    assert tracer.span.attributes["error.type"] == "ValueError"
+    assert "secret prompt text" not in repr(tracer.span.attributes)
