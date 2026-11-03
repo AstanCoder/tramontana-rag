@@ -201,8 +201,8 @@ con key inválida agota sus reintentos (~3,5 min) y queda `failed` / `provider_u
 
 **5. La traza.** `GET /api/questions/{id}` devuelve el `trace_id`. En Jaeger, buscarlo (o elegir el servicio
 `tramontana-api` y la operación `POST /api/questions`). La traza contiene:
-- el span HTTP de la API y el `apply_async` de Celery;
-- en `tramontana-worker`, `run/answer_question`, `llm.embed`, `retrieval.search` (hits, top similarity y los
+- el span HTTP de la API y `apply_async/app.answering.tasks.answer_question`;
+- en `tramontana-worker`, `run/app.answering.tasks.answer_question`, `llm.embed`, `retrieval.search` (hits, top similarity y los
   nombres de los filtros, sin sus valores), `llm.completion` (`gen_ai.*`: modelo, tokens, proveedor,
   `llm.fallback_used`, latencia) y `answer.validate`;
 - los spans de SQLAlchemy y Redis.
