@@ -14,6 +14,9 @@ x-backend: &backend
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
   volumes:
     - uploads:/data/uploads
+    # Evaluation inputs (read-only) and its report output: `docker compose run --rm api python -m eval.run_eval`.
+    - ./samples:/samples:ro
+    - ./backend/eval:/app/eval
   depends_on:
     postgres:
       condition: service_healthy

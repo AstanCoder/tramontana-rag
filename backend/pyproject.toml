@@ -72,7 +72,10 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-markers = ["integration: needs real Postgres/Redis (testcontainers)"]
+markers = [
+    "integration: needs real Postgres/Redis (testcontainers)",
+    "eval_smoke: runs the evaluation harness end to end with the mock gateway",
+]
 filterwarnings = [
     # Starlette nudges towards httpx2; the brief pins httpx for TestClient.
     "ignore:Using `httpx` with `starlette.testclient` is deprecated",

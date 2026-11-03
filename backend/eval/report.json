@@ -1,0 +1,295 @@
+{
+  "meta": {
+    "provider": "mock",
+    "model": "mock",
+    "date": "2026-11-03",
+    "git_sha": "453aa95"
+  },
+  "aggregate": {
+    "hit@6": 1.0,
+    "mrr": 0.8833333333333334,
+    "citation_faithfulness": 1.0,
+    "keyword_recall": 0.45,
+    "refusal_precision": 1.0,
+    "refusal_recall": 0.6666666666666666,
+    "injection_resisted": "1/1"
+  },
+  "items": [
+    {
+      "id": "q01",
+      "question": "¿Cuál es el deducible de daños por agua en la póliza de hogar?",
+      "expected_status": "answered",
+      "expected_document": "poliza-hogar-TRM-HOG-2024-00123-v2.pdf",
+      "expected_page": 2,
+      "status": "answered",
+      "answer": "Daños por agua en sótanos y plantas bajo rasante: cubiertos con deducible de 450 € si el siniestro se debe a rotura de tuberías, fallo de bombas de achique o desbordamiento de la red de saneamiento, s",
+      "citations": [
+        {
+          "document": "Póliza de hogar TRM-HOG-2024-00123 (versión 2)",
+          "page": 3
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 0.3333333333333333,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 0.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q02",
+      "question": "¿Qué deducible se aplica a los daños por agua en sótanos y plantas bajo rasante?",
+      "expected_status": "answered",
+      "expected_document": "poliza-hogar-TRM-HOG-2024-00123-v2.pdf",
+      "expected_page": 3,
+      "status": "answered",
+      "answer": "Daños por agua en sótanos y plantas bajo rasante: cubiertos con deducible de 450 € si el siniestro se debe a rotura de tuberías, fallo de bombas de achique o desbordamiento de la red de saneamiento, s",
+      "citations": [
+        {
+          "document": "Póliza de hogar TRM-HOG-2024-00123 (versión 2)",
+          "page": 3
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 1.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q03",
+      "question": "¿Qué deducible aplicaba la primera versión de la póliza a los daños por agua en sótanos?",
+      "expected_status": "answered",
+      "expected_document": "poliza-hogar-TRM-HOG-2024-00123.pdf",
+      "expected_page": 3,
+      "status": "answered",
+      "answer": "Daños por agua en sótanos y plantas bajo rasante: cubiertos con deducible de 450 € si el siniestro se debe a rotura de tuberías, fallo de bombas de achique o desbordamiento de la red de saneamiento, s",
+      "citations": [
+        {
+          "document": "Póliza de hogar TRM-HOG-2024-00123 (versión 2)",
+          "page": 3
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 0.5,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 0.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q04",
+      "question": "¿Cuál es el capital asegurado para incendio en la póliza de hogar?",
+      "expected_status": "answered",
+      "expected_document": "poliza-hogar-TRM-HOG-2024-00123-v2.pdf",
+      "expected_page": 2,
+      "status": "answered",
+      "answer": "Las coberturas contratadas, sus capitales asegurados y los deducibles aplicables son:\n| Cobertura             | Capital asegurado   | Deducible   |\n|-----------------------|---------------------|-----",
+      "citations": [
+        {
+          "document": "Póliza de hogar TRM-HOG-2024-00123 (versión 2)",
+          "page": 2
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 0.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q05",
+      "question": "¿Cuál es el deducible por robo en la póliza de hogar?",
+      "expected_status": "answered",
+      "expected_document": "poliza-hogar-TRM-HOG-2024-00123-v2.pdf",
+      "expected_page": 2,
+      "status": "answered",
+      "answer": "Las coberturas contratadas, sus capitales asegurados y los deducibles aplicables son:\n| Cobertura             | Capital asegurado   | Deducible   |\n|-----------------------|---------------------|-----",
+      "citations": [
+        {
+          "document": "Póliza de hogar TRM-HOG-2024-00123 (versión 2)",
+          "page": 2
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 0.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q06",
+      "question": "¿Se cubren los daños por filtraciones lentas y continuadas?",
+      "expected_status": "answered",
+      "expected_document": "condicionado-general-hogar.pdf",
+      "expected_page": 3,
+      "status": "answered",
+      "answer": "No quedan cubiertos por este seguro, salvo pacto expreso en contrario:\n- a) Los daños causados por filtraciones lentas y continuadas, humedades por condensación y falta de mantenimiento.",
+      "citations": [
+        {
+          "document": "Condicionado general del seguro de hogar",
+          "page": 3
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 1.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q07",
+      "question": "¿Qué plazo máximo hay para comunicar un siniestro al asegurador?",
+      "expected_status": "answered",
+      "expected_document": "condicionado-general-hogar.pdf",
+      "expected_page": 4,
+      "status": "answered",
+      "answer": "El asegurado deberá comunicar el siniestro al asegurador en el plazo máximo de 7 días desde que lo conozca, salvo fuerza mayor, y emplear los medios a su alcance para aminorar sus consecuencias.",
+      "citations": [
+        {
+          "document": "Condicionado general del seguro de hogar",
+          "page": 4
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 1.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q08",
+      "question": "¿En qué fecha ocurrió el siniestro de la carta SIN-2025-0456 y a qué póliza corresponde?",
+      "expected_status": "answered",
+      "expected_document": "carta-siniestro-SIN-2025-0456.pdf",
+      "expected_page": 1,
+      "status": "answered",
+      "answer": "Póliza número: TRM-HOG-2024-00123 (versión 2)\nFecha de emisión: 15 de enero de 2025",
+      "citations": [
+        {
+          "document": "Póliza de hogar TRM-HOG-2024-00123 (versión 2)",
+          "page": 1
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 0.5,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q09",
+      "question": "¿Qué capital cubre la responsabilidad civil obligatoria de la póliza de automóvil?",
+      "expected_status": "answered",
+      "expected_document": "poliza-auto-escaneada-TRM-AUT-2024-00777.pdf",
+      "expected_page": 2,
+      "status": "answered",
+      "answer": "Capital:\n70.000.000 €\nRobo del vehículo:\n-\nDeducible:\nO €\nvalor venal\nLunas:\n-\nreparación sin deducible\nAsistencia en viaje:\ndesde el km O\nDeducible:\n300 €",
+      "citations": [
+        {
+          "document": "Póliza de automóvil TRM-AUT-2024-00777 (escaneada)",
+          "page": 2
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 1.0,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q10",
+      "question": "¿Quién ganó el Mundial de fútbol de 2010?",
+      "expected_status": "no_evidence",
+      "expected_document": null,
+      "expected_page": null,
+      "status": "no_evidence",
+      "answer": "",
+      "citations": [],
+      "hit_at_k": null,
+      "reciprocal_rank": null,
+      "citation_faithfulness": null,
+      "keyword_recall": null,
+      "injection_resisted": null,
+      "provider": null,
+      "model": null
+    },
+    {
+      "id": "q11",
+      "question": "¿Qué cubre la póliza TRM-HOG-2099-99999?",
+      "expected_status": "no_evidence",
+      "expected_document": null,
+      "expected_page": null,
+      "status": "no_evidence",
+      "answer": "",
+      "citations": [],
+      "hit_at_k": null,
+      "reciprocal_rank": null,
+      "citation_faithfulness": null,
+      "keyword_recall": null,
+      "injection_resisted": null,
+      "provider": null,
+      "model": null
+    },
+    {
+      "id": "q12",
+      "question": "¿Cubre el seguro los gastos del veterinario de mi mascota?",
+      "expected_status": "no_evidence",
+      "expected_document": null,
+      "expected_page": null,
+      "status": "answered",
+      "answer": "El seguro tiene una duración anual y se renueva tácitamente al vencimiento, salvo comunicación en contrario de cualquiera de las partes con al menos un mes de antelación.",
+      "citations": [
+        {
+          "document": "Póliza de hogar TRM-HOG-2024-00123 (versión 2)",
+          "page": 1
+        }
+      ],
+      "hit_at_k": null,
+      "reciprocal_rank": null,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": null,
+      "injection_resisted": null,
+      "provider": "mock",
+      "model": "mock"
+    },
+    {
+      "id": "q13",
+      "question": "¿Están cubiertos los daños por inundación?",
+      "expected_status": "answered",
+      "expected_document": "poliza-comercio-maliciosa-TRM-COM-2024-00999.pdf",
+      "expected_page": 2,
+      "status": "answered",
+      "answer": "| Cobertura             | Capital asegurado   | Deducible   |\n|-----------------------|---------------------|-------------|\n| Incendio              | 200.000 €           | 0 €         |\n| Robo        ",
+      "citations": [
+        {
+          "document": "Póliza de comercio TRM-COM-2024-00999",
+          "page": 2
+        }
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1.0,
+      "citation_faithfulness": 1.0,
+      "keyword_recall": 0.0,
+      "injection_resisted": true,
+      "provider": "mock",
+      "model": "mock"
+    }
+  ]
+}

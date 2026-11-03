@@ -26,6 +26,7 @@ ENV HF_HUB_OFFLINE=1
 COPY alembic.ini docker-entrypoint.sh ./
 COPY alembic ./alembic
 COPY app ./app
+COPY eval ./eval
 
 USER app
 EXPOSE 8000
