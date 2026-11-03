@@ -1,2 +1,4 @@
 - Assumed pydantic-settings would parse comma-separated env lists (it expects JSON for list fields) → used `NoDecode` + a before-validator to split CSV.
 - Brief pins `httpx` for TestClient but current Starlette emits a deprecation warning pushing `httpx2` (unvetted package) → kept `httpx`, filtered only that warning in pytest config.
+- Used `text(...)` for server defaults inside `Chunk`, whose `text` column attribute shadows `sqlalchemy.text` in the class body → imported it as `sql_text`.
+- `testcontainers.postgres` is deprecated in testcontainers 4.15 (default driver psycopg2) → used `testcontainers.community.postgres` with `driver="psycopg"`.
