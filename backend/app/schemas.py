@@ -1,10 +1,10 @@
-import unicodedata
 import uuid
 from datetime import date, datetime
 from typing import Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.guards import has_control_chars
 from app.models import DocType, DocumentStatus, QuestionStatus
 
 Confidence = Literal["high", "medium", "low"]
@@ -50,7 +50,7 @@ class QuestionIn(BaseModel):
     @field_validator("question")
     @classmethod
     def _no_control_chars(cls, value: str) -> str:
-        if any(unicodedata.category(c) == "Cc" and c not in "\n\t" for c in value):
+        if has_control_chars(value):
             raise ValueError("control characters are not allowed")
         return value
 
