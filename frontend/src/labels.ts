@@ -28,7 +28,7 @@ export const ERROR_LABELS: Record<string, string> = {
 };
 
 export const pageLabel = ({ page, page_end }: Pick<Citation, "page" | "page_end">): string =>
-  page_end > page ? `págs. ${page}–${page_end}` : `pág. ${page}`;
+  page_end !== null && page_end > page ? `págs. ${page}–${page_end}` : `pág. ${page}`;
 
 export const errorLabel = (code: string | null, fallback = "Ha ocurrido un error."): string =>
   (code && ERROR_LABELS[code]) || fallback;

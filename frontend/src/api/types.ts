@@ -46,7 +46,7 @@ export interface Citation {
   document_id: string;
   document_title: string;
   page: number;
-  page_end: number;
+  page_end: number | null;
   fragment: string;
   chunk_id: string;
 }

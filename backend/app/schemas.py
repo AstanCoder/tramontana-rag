@@ -59,7 +59,7 @@ class Citation(BaseModel):
     document_id: uuid.UUID
     document_title: str
     page: int  # first page of the cited chunk; the viewer opens the PDF here
-    page_end: int
+    page_end: int | None = None  # None in answers stored before the field existed
     fragment: str
     chunk_id: uuid.UUID
 

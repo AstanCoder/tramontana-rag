@@ -103,7 +103,7 @@ def enqueue_ingestion(session: Session, document: Document) -> None:
     try:
         ingest_document.apply_async(args=(str(document.id),), task_id=task_id)
     except Exception as exc:
-        # Without this the row would stay `pending` forever (retry rejects pending).
+        # Fail now so the row is retryable at once (a `pending` row waits out the 20 min lease).
         log.error("enqueue_failed", document_id=str(document.id), exc_type=type(exc).__name__)
         document.status = DocumentStatus.failed
         document.error_code = "enqueue_failed"
