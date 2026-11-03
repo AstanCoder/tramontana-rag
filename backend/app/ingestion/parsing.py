@@ -9,7 +9,11 @@ from pypdf import PdfReader
 
 
 class CorruptDocumentError(Exception):
-    """The PDF cannot be opened: malformed, encrypted, empty or over the page limit."""
+    """The PDF cannot be opened: malformed, encrypted or empty."""
+
+
+class TooManyPagesError(Exception):
+    """The PDF is valid but over MAX_PAGES."""
 
 
 class UnreadableDocumentError(Exception):
@@ -42,8 +46,10 @@ def _page_count(path: Path) -> int:
 
 def parse_pdf(path: Path, max_pages: int) -> DoclingDocument:
     pages = _page_count(path)
-    if not 0 < pages <= max_pages:
-        raise CorruptDocumentError(f"page count {pages} outside 1..{max_pages}")
+    if pages == 0:
+        raise CorruptDocumentError("no pages")
+    if pages > max_pages:
+        raise TooManyPagesError(f"page count {pages} over {max_pages}")
     result = _converter().convert(path, raises_on_error=False)
     if result.status != ConversionStatus.SUCCESS:
         raise CorruptDocumentError(f"conversion status {result.status.value}")

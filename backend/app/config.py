@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     llm_timeout_s: int = 30
     llm_num_retries: int = 2
     embed_batch_size: int = 50
-    evidence_min_similarity: float = 0.55
+    # Unset: resolved per provider by `evidence_threshold`.
+    evidence_min_similarity: float | None = None
 
     cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
@@ -33,6 +34,19 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = ""
     otel_sdk_disabled: bool = True
     log_level: str = "INFO"
+
+    @property
+    def evidence_threshold(self) -> float:
+        """Cosine floor for a vector hit to count as evidence.
+
+        0.55 for real embeddings (design §9). The mock's hashed bag-of-words vectors also score
+        stopword overlap, so the same floor would refuse half the in-domain eval questions; 0.40
+        is calibrated on the samples: answerable questions score >= 0.43, off-domain ones sharing
+        a common word ("¿Cubre la póliza al veterinario de mi perro?") <= 0.38.
+        """
+        if self.evidence_min_similarity is not None:
+            return self.evidence_min_similarity
+        return 0.40 if self.llm_provider == "mock" else 0.55
 
     @field_validator("llm_fallback_models", "cors_origins", mode="before")
     @classmethod

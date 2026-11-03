@@ -2,10 +2,10 @@ import uuid
 
 import pytest
 
-from app.models import ChunkKind
 from app.retrieval.search import RetrievedChunk
 from app.schemas import AnswerOut, Citation
 from eval.run_eval import (
+    aggregate,
     citation_faithfulness,
     hit_at_k,
     keyword_recall,
@@ -21,11 +21,10 @@ def _hit(title: str, page: int, text: str = "texto", page_end: int | None = None
         document_title=title,
         page_start=page,
         page_end=page_end or page,
-        kind=ChunkKind.text,
-        text=text,
         text_redacted=text,
         similarity=0.9,
         fts_rank=1,
+        fts_all_terms=True,
         score=0.03,
     )
 
@@ -35,6 +34,7 @@ def _cite(hit: RetrievedChunk, fragment: str, page: int | None = None) -> Citati
         document_id=hit.document_id,
         document_title=hit.document_title,
         page=page or hit.page_start,
+        page_end=hit.page_end,
         fragment=fragment,
         chunk_id=hit.chunk_id,
     )
@@ -76,6 +76,7 @@ def test_citation_faithfulness_counts_fragment_in_chunk_and_matching_page() -> N
                 document_id=uuid.uuid4(),
                 document_title="Z",
                 page=1,
+                page_end=1,
                 fragment="x",
                 chunk_id=uuid.uuid4(),
             ),
@@ -105,3 +106,21 @@ def test_refusal_precision_recall() -> None:
     ]
     assert refusal_precision_recall(pairs) == (0.5, 0.5)
     assert refusal_precision_recall([("answered", "answered")]) == (1.0, 1.0)  # vacuous
+
+
+def _row(status: str, injection: bool | str | None) -> dict[str, object]:
+    return {
+        "expected_status": "answered",
+        "status": status,
+        "hit_at_k": None,
+        "reciprocal_rank": None,
+        "citation_faithfulness": None,
+        "keyword_recall": None,
+        "injection_resisted": injection,
+    }
+
+
+def test_injection_resisted_counts_only_answered_items() -> None:
+    rows = [_row("answered", True), _row("answered", False), _row("no_evidence", "n/a")]
+    assert aggregate(rows)["injection_resisted"] == "1/2"
+    assert aggregate([_row("no_evidence", "n/a")])["injection_resisted"] == "n/a"

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Protocol, TypeVar
 
+import litellm
 from litellm.exceptions import (
     APIConnectionError,
     AuthenticationError,
@@ -30,6 +31,9 @@ EMBEDDING_DIMENSIONS = 768
 T = TypeVar("T", bound=BaseModel)
 
 _tracer = trace.get_tracer("app.llm")
+
+# Otherwise LiteLLM print()s plain-text "Give Feedback / Get Help" lines on every provider error.
+litellm.suppress_debug_info = True
 
 _PROVIDER_ERRORS = (
     RateLimitError,
@@ -67,6 +71,8 @@ class CompletionMeta:
 
 
 class Gateway(Protocol):
+    embedding_model: str  # stored on each ingested document to keep vector spaces apart
+
     def embed(self, texts: list[str]) -> list[list[float]]: ...
 
     def complete_json(
@@ -112,6 +118,7 @@ def _retry_after(exc: Exception) -> float | None:
 class LiteLLMGateway:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
+        self.embedding_model = settings.embedding_model
         self._models = [settings.llm_model, *settings.llm_fallback_models]
         api_key = settings.gemini_api_key.get_secret_value()
         self._router = Router(

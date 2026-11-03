@@ -88,7 +88,7 @@ def test_concurrent_duplicate_race_returns_existing(engine: Engine, tmp_path: Pa
     def stored(name: str) -> StoredFile:
         path = tmp_path / name
         path.write_bytes(PDF)
-        return StoredFile(path=path, sha256="ab" * 32, size=len(PDF), original_filename="a.pdf")
+        return StoredFile(path=path, sha256="ab" * 32, original_filename="a.pdf")
 
     first, second = stored("1.pdf"), stored("2.pdf")
     with Session(engine) as s1, Session(engine) as s2:
@@ -128,7 +128,7 @@ def test_get_unknown_returns_404_envelope(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "document_not_found"
 
 
-def test_retry_only_from_failed_or_stale(
+def test_retry_only_from_failed_or_stale_lease(
     client: TestClient, db_session: Session, enqueued: list[uuid.UUID]
 ) -> None:
     now = datetime.now(UTC)
@@ -144,9 +144,13 @@ def test_retry_only_from_failed_or_stale(
         status=DocumentStatus.processing,
         processing_started_at=now - timedelta(minutes=21),
     )
+    # The broker lost the message (e.g. Redis restarted without persistence).
+    fresh_pending = _doc(db_session, updated_at=now - timedelta(minutes=16))
+    lost_pending = _doc(db_session, updated_at=now - timedelta(minutes=21))
 
     assert client.post(f"/api/documents/{ready.id}/retry").status_code == 409
     assert client.post(f"/api/documents/{fresh.id}/retry").status_code == 409
+    assert client.post(f"/api/documents/{fresh_pending.id}/retry").status_code == 409
     assert enqueued == []
 
     retried = client.post(f"/api/documents/{failed.id}/retry")
@@ -154,7 +158,8 @@ def test_retry_only_from_failed_or_stale(
     assert retried.json()["status"] == "pending"
     assert retried.json()["error_code"] is None
     assert client.post(f"/api/documents/{stale.id}/retry").status_code == 200
-    assert enqueued == [failed.id, stale.id]
+    assert client.post(f"/api/documents/{lost_pending.id}/retry").status_code == 200
+    assert enqueued == [failed.id, stale.id, lost_pending.id]
     assert client.post(f"/api/documents/{uuid.uuid4()}/retry").status_code == 404
 
 

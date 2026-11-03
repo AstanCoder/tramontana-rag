@@ -26,6 +26,7 @@ def _citation(hit: RetrievedChunk, fragment: str) -> Citation:
         document_id=hit.document_id,
         document_title=hit.document_title,
         page=hit.page_start,
+        page_end=hit.page_end,
         fragment=fragment,
         chunk_id=hit.chunk_id,
     )
@@ -50,7 +51,7 @@ def validate_answer(llm: LLMAnswer, hits: list[RetrievedChunk]) -> AnswerOut:
 
     if llm.no_evidence or not citations:
         return AnswerOut(status="no_evidence", reason=NO_EVIDENCE_REASON)
-    if not is_safe_answer_text(llm.answer):
+    if not llm.answer.strip() or not is_safe_answer_text(llm.answer):
         return AnswerOut(status="no_evidence", reason=UNSAFE_ANSWER_REASON)
     return AnswerOut(
         status="answered",

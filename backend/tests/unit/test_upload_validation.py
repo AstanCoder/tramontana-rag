@@ -51,6 +51,5 @@ def test_hash_matches_content(tmp_path: Path) -> None:
     stored = validate_and_store(_upload(PDF), _settings(tmp_path))
 
     assert stored.sha256 == hashlib.sha256(PDF).hexdigest()
-    assert stored.size == len(PDF)
     assert stored.path.read_bytes() == PDF
     assert stored.path.suffix == ".pdf"

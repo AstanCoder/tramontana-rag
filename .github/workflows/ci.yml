@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -15,6 +16,7 @@ jobs:
         working-directory: backend
     env:
       LLM_PROVIDER: mock
+      LITELLM_LOCAL_MODEL_COST_MAP: "True"
     steps:
       - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-spa libgl1

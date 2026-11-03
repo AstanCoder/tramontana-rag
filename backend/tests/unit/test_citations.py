@@ -1,7 +1,13 @@
 import uuid
 
-from app.answering.citations import extractive_answer, normalize_for_match, validate_answer
-from app.models import ChunkKind
+import pytest
+
+from app.answering.citations import (
+    UNSAFE_ANSWER_REASON,
+    extractive_answer,
+    normalize_for_match,
+    validate_answer,
+)
 from app.retrieval.search import RetrievedChunk
 from app.schemas import LLMAnswer, LLMCitation
 
@@ -9,18 +15,17 @@ WATER = "Daños por agua: capital asegurado 30.000 €, deducible 300 €."
 FIRE = "Incendio: capital asegurado 150.000 €, sin deducible."
 
 
-def _hit(text: str, page: int = 2) -> RetrievedChunk:
+def _hit(text: str, page: int = 2, page_end: int | None = None) -> RetrievedChunk:
     return RetrievedChunk(
         chunk_id=uuid.uuid4(),
         document_id=uuid.uuid4(),
         document_title="Póliza hogar",
         page_start=page,
-        page_end=page,
-        kind=ChunkKind.text,
-        text=text,
+        page_end=page_end or page,
         text_redacted=text,
         similarity=0.9,
         fts_rank=1,
+        fts_all_terms=True,
         score=0.03,
     )
 
@@ -45,7 +50,21 @@ def test_valid_citation_kept_with_server_page() -> None:
     assert citation.document_id == hit.document_id
     assert citation.document_title == "Póliza hogar"
     assert citation.page == 2
+    assert citation.page_end == 2
     assert citation.fragment == "deducible 300 €"
+
+
+def test_citation_spanning_pages_keeps_page_range() -> None:
+    hit = _hit(WATER, page=2, page_end=3)
+    [citation] = validate_answer(_llm((str(hit.chunk_id), "deducible 300 €")), [hit]).citations
+    assert (citation.page, citation.page_end) == (2, 3)
+
+
+@pytest.mark.parametrize("answer", ["", "   \n "])
+def test_blank_answer_is_discarded(answer: str) -> None:
+    hit = _hit(WATER)
+    out = validate_answer(_llm((str(hit.chunk_id), "deducible 300 €"), answer=answer), [hit])
+    assert (out.status, out.reason) == ("no_evidence", UNSAFE_ANSWER_REASON)
 
 
 def test_unknown_chunk_dropped() -> None:

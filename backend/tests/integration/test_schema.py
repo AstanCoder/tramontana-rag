@@ -2,12 +2,10 @@ import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import Engine, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Base, Chunk, ChunkKind, DocType, Document, DocumentStatus
-
-pytestmark = pytest.mark.integration
+from app.models import Base, Chunk, ChunkKind, DocType, Document, DocumentStatus, Question
 
 
 def make_document(sha256: str = "a" * 64) -> Document:
@@ -69,3 +67,13 @@ def test_models_match_migration(engine: Engine) -> None:
     with engine.connect() as connection:
         diff = compare_metadata(MigrationContext.configure(connection), Base.metadata)
     assert diff == []
+
+
+def test_sql_errors_do_not_carry_bound_values(engine: Engine) -> None:
+    # Exception text reaches the auto-instrumented server span and uvicorn's log.
+    question = "Marta 12345678Z"
+    with Session(engine) as session:
+        session.add(Question(question=question, status="x" * 40))  # status is VARCHAR(32)
+        with pytest.raises(DBAPIError) as excinfo:
+            session.flush()
+    assert question not in str(excinfo.value)

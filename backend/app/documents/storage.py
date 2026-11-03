@@ -16,7 +16,6 @@ PDF_MAGIC = b"%PDF-"
 class StoredFile:
     path: Path
     sha256: str
-    size: int
     original_filename: str
 
 
@@ -51,4 +50,4 @@ def validate_and_store(upload: UploadFile, settings: Settings) -> StoredFile:
     except BaseException:
         path.unlink(missing_ok=True)
         raise
-    return StoredFile(path, digest.hexdigest(), size, filename[:255])
+    return StoredFile(path, digest.hexdigest(), filename[:255])

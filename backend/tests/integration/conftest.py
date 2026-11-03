@@ -7,17 +7,27 @@ import pytest
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, create_engine, delete
+from sqlalchemy import Engine, delete
 from sqlalchemy.orm import Session
 from testcontainers.community.postgres import PostgresContainer
 
 from alembic import command
-from app.db import get_session
+from app.db import create_db_engine, get_session
 from app.ingestion.service import run_ingestion
 from app.llm.mock import MockGateway
 from app.models import DocType, Document
 
 SAMPLES = Path(__file__).parents[3] / "samples"
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    # Every test here needs Docker (testcontainers) and most need Docling: `-m "not integration"`.
+    here = Path(__file__).parent
+    for item in items:
+        if item.path.is_relative_to(here):
+            item.add_marker(pytest.mark.integration)
+
+
 # key -> (file, doc_type, policy_number, document_date)
 SAMPLE_DOCS = {
     "v1": (
@@ -84,7 +94,7 @@ def pg_url() -> Iterator[str]:
 
 @pytest.fixture(scope="session")
 def engine(pg_url: str) -> Iterator[Engine]:
-    engine = create_engine(pg_url)
+    engine = create_db_engine(pg_url)
     yield engine
     engine.dispose()
 

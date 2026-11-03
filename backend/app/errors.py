@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -18,9 +20,11 @@ class AppError(Exception):
         self.status_code = status_code
 
 
-def _envelope(code: str, message: str, status_code: int) -> JSONResponse:
+def _envelope(
+    code: str, message: str, status_code: int, headers: Mapping[str, str] | None = None
+) -> JSONResponse:
     body = {"error": {"code": code, "message": message, "trace_id": current_trace_id()}}
-    return JSONResponse(body, status_code=status_code)
+    return JSONResponse(body, status_code=status_code, headers=headers)
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -36,7 +40,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = _HTTP_CODES.get(exc.status_code, "http_error")
-        return _envelope(code, str(exc.detail), exc.status_code)
+        return _envelope(code, str(exc.detail), exc.status_code, exc.headers)  # e.g. 405 Allow
 
     @app.exception_handler(Exception)
     def _unhandled_error(_: Request, exc: Exception) -> JSONResponse:

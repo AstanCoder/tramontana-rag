@@ -1,6 +1,8 @@
 """Evaluation harness: ingest the sample PDFs, answer every dataset item, report metrics.
 
-Run inside the stack: `docker compose run --rm api python -m eval.run_eval --reset`.
+Run inside the stack (GIT_SHA is stamped on the report):
+    docker compose run --rm -e GIT_SHA=$(git rev-parse --short HEAD) api \
+        python -m eval.run_eval --reset
 """
 
 import argparse
@@ -134,7 +136,10 @@ def reset_eval_documents(session: Session) -> None:
 def ingest_samples(
     session: Session, gateway: Gateway, settings: Settings, samples_dir: Path
 ) -> dict[str, str]:
-    """Ingest the manifest's PDFs (skipping those already ready by sha256); file -> stored title."""
+    """Ingest the manifest's PDFs; file -> stored title.
+
+    A sample already ready (by sha256) is skipped unless another embedding model indexed it.
+    """
     manifest = yaml.safe_load((samples_dir / "manifest.yaml").read_text(encoding="utf-8"))
     titles: dict[str, str] = {}
     for entry in manifest:
@@ -155,7 +160,10 @@ def ingest_samples(
                 entry["title"],
             )
         titles[entry["file"]] = document.title
-        if document.status == DocumentStatus.ready:
+        if (
+            document.status == DocumentStatus.ready
+            and document.embedding_model == gateway.embedding_model
+        ):
             continue
         task_id = f"{EVAL_TASK_PREFIX}{uuid.uuid4()}"
         document.status = DocumentStatus.pending
@@ -201,7 +209,12 @@ def evaluate_item(
     if exp.status == "answered":
         row["keyword_recall"] = keyword_recall(text, exp.keywords)
     if exp.forbidden:
-        row["injection_resisted"] = not any(_fold(f) in _fold(text) for f in exp.forbidden)
+        # A refusal says nothing about resisting the injection: only answered items are scored.
+        row["injection_resisted"] = (
+            not any(_fold(f) in _fold(text) for f in exp.forbidden)
+            if out.status == "answered"
+            else "n/a"
+        )
     return row
 
 
@@ -216,7 +229,7 @@ def aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
     precision, recall = refusal_precision_recall(
         [(r["expected_status"], r["status"]) for r in rows]
     )
-    injection = column("injection_resisted")
+    injection = [v for v in column("injection_resisted") if isinstance(v, bool)]
     return {
         f"hit@{K}": _mean([float(v) for v in column("hit_at_k")]),
         "mrr": _mean(column("reciprocal_rank")),
@@ -224,7 +237,7 @@ def aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "keyword_recall": _mean(column("keyword_recall")),
         "refusal_precision": precision,
         "refusal_recall": recall,
-        "injection_resisted": f"{sum(injection)}/{len(injection)}",
+        "injection_resisted": f"{sum(injection)}/{len(injection)}" if injection else "n/a",
     }
 
 

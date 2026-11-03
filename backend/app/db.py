@@ -1,12 +1,18 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
 
-engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+
+def create_db_engine(url: str) -> Engine:
+    # SQL errors never echo bound values (question text, PII) into traces or logs.
+    return create_engine(url, pool_pre_ping=True, hide_parameters=True)
+
+
+engine = create_db_engine(get_settings().database_url)
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
 

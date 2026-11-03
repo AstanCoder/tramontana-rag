@@ -4,7 +4,6 @@ import uuid
 import pytest
 
 from app.answering.prompt import build_messages
-from app.models import ChunkKind
 from app.retrieval.search import RetrievedChunk
 
 
@@ -15,11 +14,10 @@ def _hit(text: str) -> RetrievedChunk:
         document_title="Póliza",
         page_start=2,
         page_end=2,
-        kind=ChunkKind.text,
-        text=text,
         text_redacted=text,
         similarity=0.9,
         fts_rank=1,
+        fts_all_terms=True,
         score=0.03,
     )
 
@@ -62,9 +60,7 @@ def test_prompt_contains_redacted_question_only() -> None:
 
 
 def test_prompt_sends_only_redacted_chunk_text() -> None:
-    hit = RetrievedChunk(
-        **{**_hit("x").__dict__, "text": "DNI 12345678Z", "text_redacted": "DNI [DNI]"}
-    )
+    hit = RetrievedChunk(**{**_hit("x").__dict__, "text_redacted": "DNI [DNI]"})
     content = _content(build_messages("¿Qué DNI?", [hit], "abc"))
     assert "12345678Z" not in content
     assert "DNI [DNI]" in content

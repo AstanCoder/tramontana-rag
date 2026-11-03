@@ -13,6 +13,8 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.19 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_NO_CACHE=1 \
     PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 \
     HF_HOME=/opt/models/hf DOCLING_ARTIFACTS_PATH=/opt/models/docling
+# LiteLLM would otherwise fetch its model cost map from GitHub on every import.
+ENV LITELLM_LOCAL_MODEL_COST_MAP=True
 
 WORKDIR /app
 COPY pyproject.toml uv.lock ./

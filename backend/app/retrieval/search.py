@@ -1,3 +1,4 @@
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -8,7 +9,7 @@ from sqlalchemy.dialects.postgresql import TSQUERY
 from sqlalchemy.orm import Session
 
 from app.logging import content_free_span
-from app.models import Chunk, ChunkKind, Document, DocumentStatus
+from app.models import Chunk, Document, DocumentStatus
 from app.schemas import QuestionFilters
 
 _tracer = trace.get_tracer("app.retrieval")
@@ -21,11 +22,10 @@ class RetrievedChunk:
     document_title: str
     page_start: int
     page_end: int
-    kind: ChunkKind
-    text: str
     text_redacted: str
     similarity: float | None
     fts_rank: int | None
+    fts_all_terms: bool  # the chunk contains every query term (AND), not just one of them
     score: float
 
 
@@ -38,17 +38,30 @@ def rrf_fuse(rankings: list[list[uuid.UUID]], k: int = 60) -> list[tuple[uuid.UU
     return sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
 
 
-def has_evidence(hits: list[RetrievedChunk], min_similarity: float) -> bool:
-    # Lax on purpose: the LLM no_evidence flag and the citation validator are the strict guards.
-    return any(h.similarity is not None and h.similarity >= min_similarity for h in hits) or any(
-        h.fts_rank is not None for h in hits
+# Policy numbers (TRM-HOG-2024-00123), amounts and years: tokens an exact keyword match nails.
+_IDENTIFIER_RE = re.compile(r"\d{3,}")
+
+
+def has_evidence(hits: list[RetrievedChunk], query_text: str, min_similarity: float) -> bool:
+    """A vector hit above the floor, or an FTS hit that is more than one shared common word.
+
+    OR-semantics FTS matches almost any in-domain question ("póliza", "cubre"), so an FTS hit only
+    counts when the chunk has every query term, or when the question carries an identifier.
+    """
+    has_identifier = _IDENTIFIER_RE.search(query_text) is not None
+    return any(
+        (h.similarity is not None and h.similarity >= min_similarity)
+        or (h.fts_rank is not None and (h.fts_all_terms or has_identifier))
+        for h in hits
     )
 
 
-def _filter_conditions(filters: QuestionFilters) -> list[ColumnElement[bool]]:
+def _filter_conditions(filters: QuestionFilters, embedding_model: str) -> list[ColumnElement[bool]]:
     """Single WHERE builder shared by the vector and FTS queries."""
     conds: list[ColumnElement[bool]] = [
         Document.status == DocumentStatus.ready,
+        # Vectors from another embedding model live in a different space: comparing them is noise.
+        Document.embedding_model == embedding_model,
         Chunk.suspicious.is_(False),
     ]
     if not filters.include_superseded:
@@ -84,26 +97,26 @@ def _vector_search(
 
 def _fts_search(
     session: Session, query_text: str, conds: list[ColumnElement[bool]], limit: int
-) -> list[uuid.UUID]:
-    # OR semantics: questions rarely have every term in a single chunk.
-    tsquery = func.replace(func.plainto_tsquery("spanish", query_text).cast(Text), "&", "|").cast(
-        TSQUERY
-    )
-    return list(
-        session.scalars(
-            select(Chunk.id)
-            .join(Document, Chunk.document_id == Document.id)
-            .where(Chunk.tsv.op("@@")(tsquery), *conds)
-            .order_by(func.ts_rank_cd(Chunk.tsv, tsquery).desc(), Chunk.ordinal)
-            .limit(limit)
-        )
-    )
+) -> list[tuple[uuid.UUID, bool]]:
+    """(chunk_id, has every term) ordered by rank."""
+    all_terms = func.plainto_tsquery("spanish", query_text)
+    # OR semantics for recall: questions rarely have every term in a single chunk.
+    any_term = func.replace(all_terms.cast(Text), "&", "|").cast(TSQUERY)
+    rows = session.execute(
+        select(Chunk.id, Chunk.tsv.op("@@")(all_terms))
+        .join(Document, Chunk.document_id == Document.id)
+        .where(Chunk.tsv.op("@@")(any_term), *conds)
+        .order_by(func.ts_rank_cd(Chunk.tsv, any_term).desc(), Chunk.ordinal)
+        .limit(limit)
+    ).all()
+    return [(cid, bool(matched)) for cid, matched in rows]
 
 
 def search(
     session: Session,
     query_text: str,
     query_embedding: list[float],
+    embedding_model: str,
     filters: QuestionFilters,
     *,
     k_vector: int = 20,
@@ -112,12 +125,13 @@ def search(
 ) -> list[RetrievedChunk]:
     started = time.perf_counter()
     with content_free_span(_tracer, "retrieval.search") as span:
-        conds = _filter_conditions(filters)
+        conds = _filter_conditions(filters, embedding_model)
         vector_hits = _vector_search(session, query_embedding, conds, k_vector)
-        fts_ids = _fts_search(session, query_text, conds, k_fts)
+        fts_hits = _fts_search(session, query_text, conds, k_fts)
         similarity = dict(vector_hits)
-        fts_rank = {cid: pos for pos, cid in enumerate(fts_ids, start=1)}
-        fused = rrf_fuse([[cid for cid, _ in vector_hits], fts_ids])
+        fts_all_terms = dict(fts_hits)
+        fts_rank = {cid: pos for pos, (cid, _) in enumerate(fts_hits, start=1)}
+        fused = rrf_fuse([[cid for cid, _ in vector_hits], [cid for cid, _ in fts_hits]])
 
         rows = {
             chunk.id: (chunk, title)
@@ -134,11 +148,10 @@ def search(
                 document_title=rows[cid][1],
                 page_start=rows[cid][0].page_start,
                 page_end=rows[cid][0].page_end,
-                kind=rows[cid][0].kind,
-                text=rows[cid][0].text,
                 text_redacted=rows[cid][0].text_redacted,
                 similarity=similarity.get(cid),
                 fts_rank=fts_rank.get(cid),
+                fts_all_terms=fts_all_terms.get(cid, False),
                 score=score,
             )
             for cid, score in fused
@@ -154,7 +167,7 @@ def search(
         results = results[:top_n]
 
         span.set_attribute("retrieval.vector_hits", len(vector_hits))
-        span.set_attribute("retrieval.fts_hits", len(fts_ids))
+        span.set_attribute("retrieval.fts_hits", len(fts_hits))
         if vector_hits:
             span.set_attribute("retrieval.top_similarity", vector_hits[0][1])
         span.set_attribute("retrieval.filters", sorted(filters.model_dump(exclude_defaults=True)))

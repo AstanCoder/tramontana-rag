@@ -58,7 +58,8 @@ class QuestionIn(BaseModel):
 class Citation(BaseModel):
     document_id: uuid.UUID
     document_title: str
-    page: int
+    page: int  # first page of the cited chunk; the viewer opens the PDF here
+    page_end: int
     fragment: str
     chunk_id: uuid.UUID
 
@@ -78,6 +79,7 @@ class QuestionOut(BaseModel):
     created_at: datetime
     result: AnswerOut | None = None
     error_code: str | None = None
+    trace_id: str | None = None  # lets an adjuster hand a failed question to support/Jaeger
 
 
 class LLMCitation(BaseModel):

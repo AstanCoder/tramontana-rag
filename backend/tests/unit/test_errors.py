@@ -46,6 +46,14 @@ def test_http_exception_returns_envelope(client: TestClient) -> None:
     assert response.json()["error"]["code"] == "not_found"
 
 
+def test_http_exception_keeps_its_headers(client: TestClient) -> None:
+    response = client.post("/health")
+
+    assert response.status_code == 405
+    assert response.json()["error"]["code"] == "method_not_allowed"
+    assert response.headers["allow"] == "GET"
+
+
 def test_unhandled_error_hides_details(app: FastAPI, client: TestClient) -> None:
     @app.get("/crash")
     def crash() -> None:

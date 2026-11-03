@@ -81,6 +81,8 @@ class Document(Base):
     )
     error_code: Mapped[str | None] = mapped_column(String(64))
     page_count: Mapped[int | None] = mapped_column(Integer)
+    # Id of the model that embedded the chunks; retrieval only compares vectors of the same space.
+    embedding_model: Mapped[str] = mapped_column(String(128), server_default="unknown")
     is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=sql_text("true"))
     superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("documents.id"))
     storage_path: Mapped[str] = mapped_column(String(512))

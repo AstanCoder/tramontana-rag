@@ -22,7 +22,6 @@ def eval_session(engine: Engine) -> Iterator[Session]:
         reset_eval_documents(session)  # the run commits; leave the shared DB as it was found
 
 
-@pytest.mark.integration
 @pytest.mark.eval_smoke
 def test_eval_runs_end_to_end_and_reports_every_item(eval_session: Session, tmp_path: Path) -> None:
     settings = get_settings().model_copy(update={"upload_dir": str(tmp_path / "uploads")})
@@ -40,7 +39,14 @@ def test_eval_runs_end_to_end_and_reports_every_item(eval_session: Session, tmp_
         == "mock"
     )
 
-    # Re-running skips ingestion: same sha256 documents, no duplicates.
+    # Re-running skips ingestion: same sha256 documents, no duplicates...
     count = eval_session.scalar(select(func.count(Document.id)))
+    # ...except a sample embedded by another model, which is re-ingested in the current space.
+    stale = eval_session.scalars(select(Document).order_by(Document.created_at)).first()
+    assert stale is not None
+    stale.embedding_model = "gemini/gemini-embedding-001"
+    eval_session.commit()
     run(eval_session, MockGateway(), settings, SAMPLES, out_dir)
     assert eval_session.scalar(select(func.count(Document.id))) == count
+    eval_session.refresh(stale)
+    assert (stale.status, stale.embedding_model) == ("ready", "mock")

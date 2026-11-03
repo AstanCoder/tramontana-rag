@@ -23,6 +23,17 @@ def _add_trace_context(_: WrappedLogger, __: str, event_dict: EventDict) -> Even
     return event_dict
 
 
+def _exception_type_only(_: WrappedLogger, __: str, event_dict: EventDict) -> EventDict:
+    """Library tracebacks (uvicorn, celery) keep only the type: messages may carry user content."""
+    exc_info = event_dict.pop("exc_info", None)
+    if isinstance(exc_info, tuple) and exc_info[0] is not None:
+        event_dict["exc_type"] = exc_info[0].__name__
+    return event_dict
+
+
+# uvicorn sets up its own plain-text handlers (access log, tracebacks) before the app loads.
+_UVICORN_LOGGERS = ("uvicorn", "uvicorn.access", "uvicorn.error")
+
 # These log file paths, prompts or request URLs at INFO/DEBUG; only their warnings are kept.
 _CONTENT_LOGGERS = (
     "docling",
@@ -59,7 +70,7 @@ def configure_logging(level: str) -> None:
     handler.setFormatter(
         structlog.stdlib.ProcessorFormatter(
             processor=structlog.processors.JSONRenderer(),
-            foreign_pre_chain=[structlog.stdlib.add_logger_name, *shared],
+            foreign_pre_chain=[structlog.stdlib.add_logger_name, *shared, _exception_type_only],
         )
     )
     logging.basicConfig(handlers=[handler], level=level.upper(), force=True)
@@ -68,6 +79,9 @@ def configure_logging(level: str) -> None:
         library_logger.handlers.clear()  # LiteLLM attaches its own plain-text handler
         library_logger.propagate = True
         library_logger.setLevel(logging.WARNING)
+    for name in _UVICORN_LOGGERS:
+        logging.getLogger(name).handlers.clear()
+        logging.getLogger(name).propagate = True
 
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:

@@ -37,8 +37,8 @@ def answer(
 ) -> tuple[AnswerOut, list[RetrievedChunk], CompletionMeta | None]:
     # Embedding errors propagate: without retrieval there is nothing to fall back to.
     embedding = gateway.embed([redact(question)])[0]
-    hits = search(session, question, embedding, filters)
-    evidence = has_evidence(hits, get_settings().evidence_min_similarity)
+    hits = search(session, question, embedding, gateway.embedding_model, filters)
+    evidence = has_evidence(hits, question, get_settings().evidence_threshold)
 
     llm: LLMAnswer | None = None
     meta: CompletionMeta | None = None

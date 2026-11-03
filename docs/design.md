@@ -198,7 +198,7 @@ README.md, DECISIONS.md
 - LiteLLM `Router`: modelo Flash de Gemini → fallback al Flash-Lite (cuota separada en free tier) →
   `LLM_FALLBACK_MODEL` opcional (cualquier modelo LiteLLM, p. ej. otro proveedor, solo por env). Nombres
   exactos por env. `timeout`, `num_retries` y backoff configurables.
-- **Último eslabón: fallback simulado extractivo** (pendiente de confirmar). Si todos los modelos fallan, no se
+- **Último eslabón: fallback simulado extractivo**. Si todos los modelos fallan, no se
   inventa una respuesta: se devuelve `status='answered'`, `degraded=true`, `confidence='low'`, con el texto
   "No se pudo generar una respuesta; estos son los fragmentos más relevantes" y como citas los mejores
   chunks recuperados (citas válidas por construcción). La UI muestra un aviso de modo degradado y la traza

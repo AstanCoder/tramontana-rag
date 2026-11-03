@@ -139,7 +139,8 @@ def test_redelivered_stuck_question_is_reclaimed_only_when_stale(
 
 
 def test_out_of_domain_question_no_evidence(client: TestClient, env: dict[str, Any]) -> None:
-    body = _ask(client, "¿Quién ganó el Mundial de fútbol de 2010?")
+    # Shares "cubre"/"póliza" with the samples: refused by the evidence gate, before the LLM.
+    body = _ask(client, "¿Cubre la póliza al veterinario de mi perro?")
 
     assert body["status"] == "no_evidence"
     assert body["result"]["status"] == "no_evidence"
@@ -262,6 +263,17 @@ def test_invalid_question_422_envelope(
     assert error["code"] == code
     assert set(error) == {"code", "message", "trace_id"}
     assert env["enqueued"] == []
+
+
+def test_question_exposes_trace_id(
+    client: TestClient, db_session: Session, env: dict[str, Any]
+) -> None:
+    body = _ask(client, WATER_QUESTION)
+    db_session.execute(
+        update(Question).where(Question.id == uuid.UUID(body["id"])).values(trace_id="ab" * 16)
+    )
+    db_session.commit()
+    assert client.get(f"/api/questions/{body['id']}").json()["trace_id"] == "ab" * 16
 
 
 def test_unknown_question_404(client: TestClient) -> None:

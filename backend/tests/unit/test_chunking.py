@@ -5,7 +5,12 @@ from pypdf import PdfWriter
 
 from app.ingestion import chunking
 from app.ingestion.chunking import ChunkDraft, chunk_document
-from app.ingestion.parsing import CorruptDocumentError, UnreadableDocumentError, parse_pdf
+from app.ingestion.parsing import (
+    CorruptDocumentError,
+    TooManyPagesError,
+    UnreadableDocumentError,
+    parse_pdf,
+)
 from app.models import ChunkKind
 
 SAMPLES = Path(__file__).parents[3] / "samples"
@@ -70,7 +75,7 @@ def test_encrypted_pdf_raises(tmp_path: Path) -> None:
 
 
 def test_too_many_pages_raises() -> None:
-    with pytest.raises(CorruptDocumentError):
+    with pytest.raises(TooManyPagesError):
         parse_pdf(HOME_POLICY, max_pages=2)
 
 

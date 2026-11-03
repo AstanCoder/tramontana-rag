@@ -41,6 +41,8 @@ def _embed_one(text: str) -> list[float]:
 
 
 class MockGateway:
+    embedding_model = "mock"
+
     def __init__(self, fail: bool = False) -> None:
         self._fail = fail
 

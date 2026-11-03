@@ -36,7 +36,11 @@ def _mark_failed(document_id: uuid.UUID, task_id: str, error_code: str) -> None:
 @celery_app.task(bind=True, max_retries=len(RETRY_BACKOFF_S), soft_time_limit=900, time_limit=960)
 def ingest_document(self: "Task[[str], None]", document_id: str) -> None:
     # Imported here so the API process, which only enqueues, never loads Docling/torch.
-    from app.ingestion.parsing import CorruptDocumentError, UnreadableDocumentError
+    from app.ingestion.parsing import (
+        CorruptDocumentError,
+        TooManyPagesError,
+        UnreadableDocumentError,
+    )
     from app.ingestion.service import run_ingestion
 
     doc_id = uuid.UUID(document_id)
@@ -49,6 +53,8 @@ def ingest_document(self: "Task[[str], None]", document_id: str) -> None:
         _mark_failed(doc_id, task_id, "corrupt_document")
     except UnreadableDocumentError:
         _mark_failed(doc_id, task_id, "unreadable_document")
+    except TooManyPagesError:
+        _mark_failed(doc_id, task_id, "too_many_pages")
     except SoftTimeLimitExceeded:
         _mark_failed(doc_id, task_id, "ingestion_timeout")
     except (ProviderUnavailableError, OperationalError) as exc:

@@ -123,6 +123,7 @@ def run_ingestion(session: Session, document_id: uuid.UUID, task_id: str, gatewa
         return
     replace_chunks(session, document, drafts, embeddings)
     document.page_count = len(doc.pages)
+    document.embedding_model = gateway.embedding_model
     if document.policy_number is None:
         document.policy_number = extract_policy_number("\n".join(d.embed_text for d in drafts))
     document.status = DocumentStatus.ready

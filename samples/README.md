@@ -12,7 +12,7 @@ uv run --directory backend python ../samples/generate.py --out ../samples
 
 ## Qué demuestra cada archivo y hechos clave
 
-Las páginas son 1-indexadas y están garantizadas por el generador (los tests pueden afirmarlas).
+Las páginas son 1-indexadas. La página de cada hecho se comprobó al generar los PDF; el generador no la verifica automáticamente.
 
 | Archivo | Qué demuestra | Hechos clave (página) |
 |---|---|---|

@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 from structlog.testing import capture_logs
 
+from app.config import Settings
 from app.ingestion import service, tasks
 from app.ingestion.service import claim_document, run_ingestion
 from app.llm.gateway import ProviderUnavailableError
@@ -163,6 +164,17 @@ def test_corrupt_marks_failed(db_session: Session, task_env: dict[str, Any]) -> 
     assert doc.status == DocumentStatus.failed
     assert doc.error_code == "corrupt_document"
     assert _chunks(db_session, doc) == []
+
+
+def test_too_many_pages_marks_failed(
+    db_session: Session, task_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(service, "get_settings", lambda: Settings(max_pages=1))
+    doc = _doc(db_session, HOME_V1)
+    _run_task(doc)
+
+    db_session.refresh(doc)
+    assert (doc.status, doc.error_code) == (DocumentStatus.failed, "too_many_pages")
 
 
 def test_provider_down_retries_then_fails(db_session: Session, task_env: dict[str, Any]) -> None:

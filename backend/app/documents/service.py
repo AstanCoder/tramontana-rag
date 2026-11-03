@@ -48,7 +48,8 @@ def list_documents(
     policy_number: str | None,
     status: DocumentStatus | None,
 ) -> list[DocumentOut]:
-    query = _out_query().order_by(Document.created_at.desc())
+    # shortcut: newest 200 only, no pagination; add cursor paging when the UI needs older documents.
+    query = _out_query().order_by(Document.created_at.desc()).limit(200)
     if doc_type:
         query = query.where(Document.doc_type == doc_type)
     if policy_number:
@@ -116,11 +117,13 @@ def enqueue_ingestion(session: Session, document: Document) -> None:
 
 def retry_document(session: Session, document_id: uuid.UUID) -> Document:
     document = get_document(session, document_id)
+    lease_expired = datetime.now(UTC) - STALE_PROCESSING
+    # A `pending` row this old lost its broker message (e.g. Redis restarted without persistence).
     stale = (
         document.status == DocumentStatus.processing
         and document.processing_started_at is not None
-        and document.processing_started_at < datetime.now(UTC) - STALE_PROCESSING
-    )
+        and document.processing_started_at < lease_expired
+    ) or (document.status == DocumentStatus.pending and document.updated_at < lease_expired)
     if document.status != DocumentStatus.failed and not stale:
         raise AppError("invalid_state", "El documento no se puede reintentar ahora", 409)
     document.status = DocumentStatus.pending
