@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
+from app.documents.router import router as documents_router
 from app.errors import register_error_handlers
 from app.logging import configure_logging
 
@@ -18,6 +19,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_error_handlers(app)
+    app.include_router(documents_router)
 
     @app.get("/health")
     def health() -> dict[str, str]:
