@@ -4,3 +4,4 @@
 - `testcontainers.postgres` is deprecated in testcontainers 4.15 (default driver psycopg2) → used `testcontainers.community.postgres` with `driver="psycopg"`.
 - Brief's mock regex `<doc-[0-9a-f]+ id="...">` did not match the real prompt format (`page` attribute, nonce) → used the controller's backreference regex; also context7 had no usable Router docs for 1.106, so verified fallback/mock behaviour by running the installed package (`response.model` has no provider prefix, so `fallback_used` compares against the bare model name).
 - A `retry-after` header on a mocked 429 makes LiteLLM's router sleep ~45s in tests → tested header parsing separately from the router error mapping.
+- Assumed `litellm.embedding(num_retries=...)` retries (and the brief's design implied it) → it does not in 1.106 (only completion); embeddings go through a second `Router`, whose `embedding` retries with backoff.

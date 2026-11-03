@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Protocol, TypeVar
 
-import litellm
 from litellm.exceptions import (
     APIConnectionError,
+    BadGatewayError,
     InternalServerError,
     RateLimitError,
     ServiceUnavailableError,
@@ -33,6 +33,7 @@ _PROVIDER_ERRORS = (
     APIConnectionError,
     ServiceUnavailableError,
     InternalServerError,
+    BadGatewayError,
 )
 
 
@@ -106,14 +107,21 @@ class LiteLLMGateway:
         self._models = [settings.llm_model, *settings.llm_fallback_models]
         api_key = settings.gemini_api_key.get_secret_value()
         self._router = Router(
-            model_list=[
-                {"model_name": m, "litellm_params": {"model": m, "api_key": api_key}}
-                for m in self._models
-            ],
+            model_list=[self._deployment(m, api_key) for m in self._models],
             fallbacks=[{settings.llm_model: settings.llm_fallback_models}],
             timeout=settings.llm_timeout_s,
             num_retries=settings.llm_num_retries,
         )
+        # litellm.embedding ignores num_retries; Router.embedding retries with backoff.
+        self._embed_router = Router(
+            model_list=[self._deployment(settings.embedding_model, api_key)],
+            timeout=settings.llm_timeout_s,
+            num_retries=settings.llm_num_retries,
+        )
+
+    @staticmethod
+    def _deployment(model: str, api_key: str) -> dict[str, Any]:
+        return {"model_name": model, "litellm_params": {"model": model, "api_key": api_key}}
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         s = self._settings
@@ -124,13 +132,10 @@ class LiteLLMGateway:
         with llm_span("llm.embed", s.embedding_model) as record:
             for i in range(0, len(texts), s.embed_batch_size):
                 response = self._call(
-                    litellm.embedding,
+                    self._embed_router.embedding,
                     model=s.embedding_model,
                     input=texts[i : i + s.embed_batch_size],
                     dimensions=EMBEDDING_DIMENSIONS,
-                    api_key=s.gemini_api_key.get_secret_value(),
-                    timeout=s.llm_timeout_s,
-                    num_retries=s.llm_num_retries,
                 )
                 vectors.extend(item["embedding"] for item in response.data)
                 input_tokens += response.usage.prompt_tokens

@@ -5,6 +5,7 @@ from typing import Literal
 import httpx
 import litellm
 import pytest
+from litellm.router import Router
 from pydantic import BaseModel
 
 from app.config import Settings
@@ -140,8 +141,16 @@ def test_invalid_json_raises_output_invalid(monkeypatch: pytest.MonkeyPatch) -> 
         gw.complete_json([{"role": "user", "content": "hola"}], Answer)
 
 
-def test_provider_errors_mapped(monkeypatch: pytest.MonkeyPatch) -> None:
-    error = litellm.RateLimitError("slow down", "gemini", FLASH)
+@pytest.mark.parametrize(
+    "error",
+    [
+        litellm.RateLimitError("slow down", "gemini", FLASH),
+        litellm.BadGatewayError("bad gateway", "gemini", FLASH),
+        litellm.Timeout("timed out", FLASH, "gemini"),
+    ],
+    ids=["429", "502", "timeout"],
+)
+def test_provider_errors_mapped(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
     gw = _litellm_gateway(monkeypatch, mock_response=error)
     with pytest.raises(ProviderUnavailableError) as exc:
         gw.complete_json([{"role": "user", "content": "hola"}], Answer)
@@ -155,32 +164,67 @@ def test_retry_after_header_is_kept() -> None:
     assert _retry_after(litellm.RateLimitError("x", "gemini", FLASH, response=response)) == 7.0
 
 
-def test_embed_batches_and_checks_dimension(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[dict[str, object]] = []
+def _embedding_response(n: int, dims: int = 768) -> litellm.EmbeddingResponse:
+    return litellm.EmbeddingResponse(
+        model="gemini-embedding-001",
+        data=[{"object": "embedding", "index": i, "embedding": [0.1] * dims} for i in range(n)],
+        usage=litellm.Usage(prompt_tokens=n, total_tokens=n),
+    )
 
+
+@pytest.fixture(autouse=True)
+def _no_retry_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Router, "_time_to_sleep_before_retry", lambda *_, **__: 0)
+
+
+@pytest.fixture
+def embed_calls() -> list[dict[str, object]]:
+    """Records litellm.embedding calls (the Router's transport)."""
+    return []
+
+
+def test_embed_batches_and_checks_dimension(
+    monkeypatch: pytest.MonkeyPatch, embed_calls: list[dict[str, object]]
+) -> None:
     def fake_embedding(**kwargs: object) -> litellm.EmbeddingResponse:
-        calls.append(kwargs)
-        n = len(kwargs["input"])  # type: ignore[arg-type]
-        return litellm.EmbeddingResponse(
-            model="gemini-embedding-001",
-            data=[{"object": "embedding", "index": i, "embedding": [0.1] * 768} for i in range(n)],
-            usage=litellm.Usage(prompt_tokens=n, total_tokens=n),
-        )
+        embed_calls.append(kwargs)
+        return _embedding_response(len(kwargs["input"]))  # type: ignore[arg-type]
 
     monkeypatch.setattr(litellm, "embedding", fake_embedding)
     gw = LiteLLMGateway(Settings(gemini_api_key="test-key", embed_batch_size=2))  # type: ignore[arg-type]
     assert len(gw.embed(["a", "b", "c"])) == 3
-    assert [len(c["input"]) for c in calls] == [2, 1]  # type: ignore[arg-type]
-    assert calls[0]["dimensions"] == 768
+    assert [len(c["input"]) for c in embed_calls] == [2, 1]  # type: ignore[arg-type]
+    assert embed_calls[0]["dimensions"] == 768
 
-    monkeypatch.setattr(
-        litellm,
-        "embedding",
-        lambda **_: litellm.EmbeddingResponse(
-            model="m",
-            data=[{"object": "embedding", "index": 0, "embedding": [0.1] * 3}],
-            usage=litellm.Usage(prompt_tokens=1, total_tokens=1),
-        ),
-    )
+    monkeypatch.setattr(litellm, "embedding", lambda **_: _embedding_response(1, dims=3))
     with pytest.raises(LLMOutputInvalidError):
         gw.embed(["a"])
+
+
+def test_embed_retries_transient_error(
+    monkeypatch: pytest.MonkeyPatch, embed_calls: list[dict[str, object]]
+) -> None:
+    def flaky(**kwargs: object) -> litellm.EmbeddingResponse:
+        embed_calls.append(kwargs)
+        if len(embed_calls) == 1:
+            raise litellm.ServiceUnavailableError("down", "gemini", "m")
+        return _embedding_response(1)
+
+    monkeypatch.setattr(litellm, "embedding", flaky)
+    gw = LiteLLMGateway(Settings(gemini_api_key="test-key"))  # type: ignore[arg-type]
+    assert len(gw.embed(["a"])) == 1
+    assert len(embed_calls) == 2
+
+
+def test_embed_persistent_failure_is_provider_unavailable(
+    monkeypatch: pytest.MonkeyPatch, embed_calls: list[dict[str, object]]
+) -> None:
+    def down(**kwargs: object) -> litellm.EmbeddingResponse:
+        embed_calls.append(kwargs)
+        raise litellm.ServiceUnavailableError("down", "gemini", "m")
+
+    monkeypatch.setattr(litellm, "embedding", down)
+    gw = LiteLLMGateway(Settings(gemini_api_key="test-key", llm_num_retries=2))  # type: ignore[arg-type]
+    with pytest.raises(ProviderUnavailableError):
+        gw.embed(["a"])
+    assert len(embed_calls) == 3  # first attempt + num_retries
