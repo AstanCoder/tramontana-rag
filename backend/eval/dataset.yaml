@@ -44,7 +44,7 @@
     status: answered
     document: poliza-hogar-TRM-HOG-2024-00123-v2.pdf
     page: 2
-    keywords: ["150"]
+    keywords: ["150 €"]
     answer: "150 € (capital asegurado 6.000 €)."
 - id: q06
   question: "¿Se cubren los daños por filtraciones lentas y continuadas?"
@@ -52,7 +52,7 @@
     status: answered
     document: condicionado-general-hogar.pdf
     page: 3
-    keywords: ["filtraciones", "cubiert"]
+    keywords: ["filtraciones", "no cubiert"]
     answer: "No: están excluidas en el artículo 5 del condicionado general."
 - id: q07
   question: "¿Qué plazo máximo hay para comunicar un siniestro al asegurador?"
