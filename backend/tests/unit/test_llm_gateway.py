@@ -151,8 +151,16 @@ def test_invalid_json_raises_output_invalid(monkeypatch: pytest.MonkeyPatch) -> 
         litellm.RateLimitError("slow down", "gemini", FLASH),
         litellm.BadGatewayError("bad gateway", "gemini", FLASH),
         litellm.Timeout("timed out", FLASH, "gemini"),
+        litellm.AuthenticationError("bad key", "gemini", FLASH),
+        litellm.PermissionDeniedError(
+            "denied",
+            "gemini",
+            FLASH,
+            httpx.Response(403, request=httpx.Request("POST", "http://x")),
+        ),
+        litellm.NotFoundError("retired model", FLASH, "gemini"),
     ],
-    ids=["429", "502", "timeout"],
+    ids=["429", "502", "timeout", "401", "403", "404"],
 )
 def test_provider_errors_mapped(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
     gw = _litellm_gateway(monkeypatch, mock_response=error)

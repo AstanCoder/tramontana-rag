@@ -10,3 +10,4 @@
 - `celery-types` makes `Task` generic only in the stubs; `self: Task[[str], None]` crashed at import (`type 'Task' is not subscriptable`) → quoted the annotation.
 - mypy strict rejects `from docling_core.types.doc import DoclingDocument` / `transforms.chunker import DocChunk` (implicit re-exports) and `DoclingDocument.num_pages()` is untyped → imported from the defining modules and used `len(doc.pages)`.
 - Docling emits its own `DeprecationWarning`s (`force_full_page_ocr`, `generate_table_images`) while reading default options we never set → filtered those two messages in pytest config.
+- Assumed `structlog.testing.capture_logs` sees every log call → loggers cached by `cache_logger_on_first_use=True` in earlier tests bypass it; the no-PII log test reads the rendered JSON lines with `capfd` instead.

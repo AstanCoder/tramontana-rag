@@ -8,7 +8,7 @@ celery_app = Celery(
     "tramontana",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.ingestion.tasks"],
+    include=["app.ingestion.tasks", "app.answering.tasks"],
 )
 celery_app.conf.update(
     task_acks_late=True,

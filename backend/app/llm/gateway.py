@@ -9,8 +9,11 @@ from typing import Any, Protocol, TypeVar
 
 from litellm.exceptions import (
     APIConnectionError,
+    AuthenticationError,
     BadGatewayError,
     InternalServerError,
+    NotFoundError,
+    PermissionDeniedError,
     RateLimitError,
     ServiceUnavailableError,
     Timeout,
@@ -35,11 +38,15 @@ _PROVIDER_ERRORS = (
     ServiceUnavailableError,
     InternalServerError,
     BadGatewayError,
+    # Invalid key or retired model: degrade to the extractive fallback instead of a 500.
+    AuthenticationError,
+    PermissionDeniedError,
+    NotFoundError,
 )
 
 
 class ProviderUnavailableError(Exception):
-    """All models/retries exhausted, timeout, or 429 after retries."""
+    """All models/retries exhausted, timeout, 429 after retries, or bad key/model."""
 
     def __init__(self, message: str, retry_after: float | None = None) -> None:
         super().__init__(message)
