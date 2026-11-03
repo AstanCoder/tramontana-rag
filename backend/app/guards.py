@@ -9,13 +9,19 @@ ANSWER_MAX_LEN = 2000
 
 _UNTRUSTED_CHARS_RE = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏⁠﻿]")
 _DOC_TAG_RE = re.compile(r"</?doc-")
+# Tight on purpose: flagged chunks are excluded from retrieval, so false positives hide evidence.
+_ROLE = (
+    r"(?:(?:un|una|an|a|el|la|the)\s+)?"
+    r"(?:asistente|assistant|ia|ai|modelo|model|sistema|system|dan)\b"
+)
 _INJECTION_RE = re.compile(
-    r"(?:ignor\w*|olvid\w*|forget|disregard)\W+(?:\w+\W+){0,4}?(?:instrucciones|instructions)"
-    r"|eres ahora|you are now"
+    r"\b(?:ignora|ignore|olvida|forget|disregard)\b"
+    r"(?:\s+(?:todas|todo|las|los|tus|sus|the|all|your|any|previous|prior|anteriores|previas|above))*"
+    r"\s+(?:instrucciones|instructions|indicaciones)\b"
+    rf"|\b(?:eres ahora|ahora eres|you are now|act as|actua como)\s+{_ROLE}"
     r"|system prompt|instrucciones para el asistente"
-    r"|responde (?:siempre )?que"
+    r"|\b(?:responde|contesta|di)\s+siempre\s+que\b"
     r"|<\|im_start\|>|### system"
-    r"|\bact as\b|\bactua como\b"
 )
 _UNSAFE_ANSWER_RE = re.compile(r"https?://|www\.|<[a-zA-Z/][^>]*>")
 
