@@ -2,3 +2,5 @@
 - Brief pins `httpx` for TestClient but current Starlette emits a deprecation warning pushing `httpx2` (unvetted package) → kept `httpx`, filtered only that warning in pytest config.
 - Used `text(...)` for server defaults inside `Chunk`, whose `text` column attribute shadows `sqlalchemy.text` in the class body → imported it as `sql_text`.
 - `testcontainers.postgres` is deprecated in testcontainers 4.15 (default driver psycopg2) → used `testcontainers.community.postgres` with `driver="psycopg"`.
+- Brief's mock regex `<doc-[0-9a-f]+ id="...">` did not match the real prompt format (`page` attribute, nonce) → used the controller's backreference regex; also context7 had no usable Router docs for 1.106, so verified fallback/mock behaviour by running the installed package (`response.model` has no provider prefix, so `fallback_used` compares against the bare model name).
+- A `retry-after` header on a mocked 429 makes LiteLLM's router sleep ~45s in tests → tested header parsing separately from the router error mapping.
