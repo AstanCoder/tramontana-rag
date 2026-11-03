@@ -15,3 +15,7 @@ def test_filters_reject_inverted_date_range() -> None:
 def test_question_rejects_bad_length_or_control_chars(question: str) -> None:
     with pytest.raises(ValidationError):
         QuestionIn(question=question)
+
+
+def test_question_allows_newlines_and_tabs() -> None:
+    assert QuestionIn(question="línea 1\n\tlínea 2").question == "línea 1\n\tlínea 2"

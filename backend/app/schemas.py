@@ -50,7 +50,7 @@ class QuestionIn(BaseModel):
     @field_validator("question")
     @classmethod
     def _no_control_chars(cls, value: str) -> str:
-        if any(unicodedata.category(c) == "Cc" for c in value):
+        if any(unicodedata.category(c) == "Cc" and c not in "\n\t" for c in value):
             raise ValueError("control characters are not allowed")
         return value
 

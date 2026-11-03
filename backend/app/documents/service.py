@@ -8,8 +8,11 @@ from sqlalchemy.orm import Session
 from app.documents.storage import StoredFile
 from app.errors import AppError
 from app.ingestion.tasks import ingest_document
+from app.logging import get_logger
 from app.models import Chunk, DocType, Document, DocumentStatus
 from app.schemas import DocumentOut
+
+log = get_logger(__name__)
 
 STALE_PROCESSING = timedelta(minutes=15)
 
@@ -95,7 +98,19 @@ def enqueue_ingestion(session: Session, document: Document) -> None:
     task_id = str(uuid.uuid4())
     document.ingest_task_id = task_id
     session.commit()
-    ingest_document.apply_async(args=(str(document.id),), task_id=task_id)
+    try:
+        ingest_document.apply_async(args=(str(document.id),), task_id=task_id)
+    except Exception as exc:
+        # Without this the row would stay `pending` forever (retry rejects pending).
+        log.error("enqueue_failed", document_id=str(document.id), exc_type=type(exc).__name__)
+        document.status = DocumentStatus.failed
+        document.error_code = "enqueue_failed"
+        session.commit()
+        raise AppError(
+            "queue_unavailable",
+            "La cola de procesamiento no está disponible. Inténtalo de nuevo más tarde.",
+            503,
+        ) from exc
 
 
 def retry_document(session: Session, document_id: uuid.UUID) -> Document:

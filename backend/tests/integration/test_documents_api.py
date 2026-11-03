@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.documents import service
 from app.documents.storage import StoredFile
+from app.ingestion.tasks import ingest_document
 from app.models import DocType, Document, DocumentStatus
 
 PDF = b"%PDF-1.7\n" + b"hello"
@@ -174,3 +175,40 @@ def test_missing_doc_type_is_validation_error(client: TestClient, upload_dir: Pa
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "validation_error"
+
+
+def test_enqueue_persists_task_id_and_sends_it_to_celery(
+    client: TestClient, db_session: Session, upload_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent: dict[str, Any] = {}
+    monkeypatch.setattr(ingest_document, "apply_async", lambda **kw: sent.update(kw))
+
+    body = _post(client).json()
+
+    document = db_session.get(Document, uuid.UUID(body["id"]))
+    assert document is not None
+    assert document.ingest_task_id == sent["task_id"]
+    assert list(sent["args"]) == [body["id"]]
+
+
+def test_queue_failure_marks_failed_and_is_retryable(
+    client: TestClient, db_session: Session, upload_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broker_down(**_: Any) -> None:
+        raise ConnectionError("redis down")
+
+    monkeypatch.setattr(ingest_document, "apply_async", broker_down)
+
+    response = _post(client)
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "queue_unavailable"
+    document = db_session.query(Document).one()
+    assert (document.status, document.error_code) == (DocumentStatus.failed, "enqueue_failed")
+
+    monkeypatch.setattr(ingest_document, "apply_async", lambda **_: None)
+    retried = client.post(f"/api/documents/{document.id}/retry")
+
+    assert retried.status_code == 200
+    assert retried.json()["status"] == "pending"
+    assert retried.json()["error_code"] is None
