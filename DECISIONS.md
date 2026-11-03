@@ -186,8 +186,8 @@ a reingestar (README).
 **Coste.** Más memoria y construcción e inserción más lentas que IVFFlat. Para miles de PDF (cientos de miles
 de chunks) es asumible.
 
-**Cómo se mediría.** Repitiendo el eval con el índice desactivado (`SET enable_indexscan = off`, búsqueda exacta)
-y comparando hit@6 y MRR. No se ha hecho: con los samples hay pocas decenas de chunks y la diferencia sería
+**Cómo se mediría.** Repitiendo el eval con el índice desactivado (`SET enable_indexscan = off; SET enable_bitmapscan = off`,
+confirmando con `EXPLAIN` que el plan es un seq scan, es decir, búsqueda exacta) y comparando hit@6 y MRR. No se ha hecho: con los samples hay pocas decenas de chunks y la diferencia sería
 nula; tiene sentido con un corpus real.
 
 ## 7. Las preguntas también pasan por Celery
