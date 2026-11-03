@@ -45,6 +45,8 @@ export function useQuestion(id: string | null) {
     queryFn: () => apiFetch<QuestionOut>(`/api/questions/${id}`),
     enabled: id !== null,
     refetchInterval: (q) => {
+      // TanStack keeps the previous data after a failed refetch: stop polling on error.
+      if (q.state.status === "error") return false;
       const status = q.state.data?.status;
       return status === "pending" || status === "processing" ? 1000 : false;
     },

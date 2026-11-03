@@ -55,7 +55,7 @@ export default function App() {
                 setCitation(null);
               }}
             />
-            {questionId && (question.error && !question.data ? (
+            {questionId && (question.error ? (
               <ErrorMessage error={question.error} />
             ) : (
               <AnswerCard question={question.data} onSelectCitation={setCitation} />
