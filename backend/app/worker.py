@@ -1,7 +1,9 @@
 from typing import Any
 
 from celery import Celery
-from celery.signals import setup_logging, worker_process_init
+from celery.signals import setup_logging, worker_process_init, worker_process_shutdown
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
 
 from app.config import get_settings
 from app.logging import configure_logging
@@ -35,3 +37,11 @@ def _configure_logging(**_: Any) -> None:
 def _init_telemetry(**_: Any) -> None:
     # Per child process: the span exporter's background thread does not survive fork.
     setup_telemetry("tramontana-worker")
+
+
+@worker_process_shutdown.connect
+def _flush_telemetry(**_: Any) -> None:
+    # Children exit via os._exit, which skips the provider's atexit flush of batched spans.
+    provider = trace.get_tracer_provider()
+    if isinstance(provider, TracerProvider):  # only set when telemetry is enabled
+        provider.shutdown()
