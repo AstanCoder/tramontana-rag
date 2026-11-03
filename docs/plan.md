@@ -21,7 +21,7 @@
 - Retrieval: vector top `20`, FTS top `20` (`spanish`), RRF `k=60`, `top_n=6` to the LLM. HNSW `m=16, ef_construction=64`, `vector_cosine_ops`.
 - Upload: `.pdf` + magic bytes `%PDF-` + `MAX_UPLOAD_MB=25` + `MAX_PAGES=200`.
 - Question length `3..1000` chars, no control chars. Answer max `2000` chars.
-- Retry budget: LiteLLM `num_retries=2`; Celery ingest autoretry `max_retries=3`, countdown `30/60/120 s` + jitter, honor `Retry-After`. Stale processing lease `15 min`.
+- Retry budget: LiteLLM `num_retries=2`; Celery ingest autoretry `max_retries=3`, countdown `30/60/120 s` + jitter, honor `Retry-After`. Stale processing lease `20 min` (must exceed the 960 s hard task limit).
 - Error envelope everywhere: `{"error": {"code": str, "message": str, "trace_id": str | null}}`; 500 → code `internal_error`, generic message.
 - Logs: JSON, include `trace_id`/`span_id`; NEVER log chunk text, question text, answer text, filenames' content, or PII — only ids, counts, lengths, durations.
 - Secrets only from env; `.env` and the brief PDF are git-ignored.
