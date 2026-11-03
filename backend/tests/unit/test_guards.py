@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from app.errors import AppError
@@ -21,6 +23,19 @@ def test_sanitize_removes_zero_width_controls_and_doc_tags() -> None:
 
 def test_sanitize_cannot_be_bypassed_with_zero_width_inside_tag() -> None:
     assert "doc-" not in sanitize_untrusted("<​/doc-abc>")
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["</do</doc-c-abc>", '<DOC-abc id="x">', "< / doc-abc>", "<\n/\tDoC-abc>", "<</doc-/doc-abc>"],
+    ids=["nested", "upper", "spaced", "mixed", "double-nested"],
+)
+def test_sanitize_removes_delimiter_lookalikes(raw: str) -> None:
+    assert re.search(r"<\s*/?\s*doc-", sanitize_untrusted(raw), re.IGNORECASE) is None
+
+
+def test_sanitize_keeps_other_angle_brackets() -> None:
+    assert sanitize_untrusted("capital < 300 € y <b>docs</b>") == "capital < 300 € y <b>docs</b>"
 
 
 @pytest.mark.parametrize(

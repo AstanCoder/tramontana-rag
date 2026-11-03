@@ -1,8 +1,9 @@
 import time
 import uuid
+from datetime import timedelta
 
 from opentelemetry import trace
-from sqlalchemy import update
+from sqlalchemy import and_, func, or_, update
 from sqlalchemy.orm import Session
 
 from app.answering.citations import (
@@ -26,6 +27,9 @@ from app.schemas import AnswerOut, LLMAnswer, QuestionFilters
 
 log = get_logger(__name__)
 _tracer = trace.get_tracer("app.answering")
+
+# Must exceed the answer task's hard time limit (540 s) so a live task is never reclaimed.
+STALE_PROCESSING = timedelta(minutes=10)
 
 
 def answer(
@@ -52,6 +56,7 @@ def answer(
             out = AnswerOut(status="no_evidence", reason=NO_EVIDENCE_REASON)
         elif llm is None:
             out = extractive_answer(hits)
+            span.set_attribute("llm.fallback_used", "extractive")
         else:
             out = validate_answer(llm, hits)
         span.set_attributes(
@@ -65,10 +70,20 @@ def answer(
 
 
 def run_question(session: Session, question_id: uuid.UUID, gateway: Gateway) -> None:
-    # Questions have no retry endpoint, so `pending` alone identifies the first delivery.
+    # No owner token: questions have no retry endpoint. A stale `processing` row is a redelivery
+    # after the worker died (acks_late), so it is reclaimed instead of staying stuck forever.
     question = session.scalars(
         update(Question)
-        .where(Question.id == question_id, Question.status == QuestionStatus.pending)
+        .where(
+            Question.id == question_id,
+            or_(
+                Question.status == QuestionStatus.pending,
+                and_(
+                    Question.status == QuestionStatus.processing,
+                    Question.created_at < func.now() - STALE_PROCESSING,
+                ),
+            ),
+        )
         .values(status=QuestionStatus.processing)
         .returning(Question)
         .execution_options(populate_existing=True)

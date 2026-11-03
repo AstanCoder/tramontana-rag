@@ -8,7 +8,7 @@ QUESTION_MAX_LEN = 1000
 ANSWER_MAX_LEN = 2000
 
 _UNTRUSTED_CHARS_RE = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏⁠﻿]")
-_DOC_TAG_RE = re.compile(r"</?doc-")
+_DOC_TAG_RE = re.compile(r"<\s*/?\s*doc-", re.IGNORECASE)
 # Tight on purpose: flagged chunks are excluded from retrieval, so false positives hide evidence.
 _ROLE = (
     r"(?:(?:un|una|an|a|el|la|the)\s+)?"
@@ -33,7 +33,11 @@ def has_control_chars(text: str) -> bool:
 
 def sanitize_untrusted(text: str) -> str:
     # Strip invisible chars first so they cannot be used to split a `<doc-` tag.
-    return _DOC_TAG_RE.sub("", _UNTRUSTED_CHARS_RE.sub("", text))
+    text = _UNTRUSTED_CHARS_RE.sub("", text)
+    # Repeat until stable: removing one tag must not join its neighbours into a new one.
+    while (cleaned := _DOC_TAG_RE.sub("", text)) != text:
+        text = cleaned
+    return text
 
 
 def looks_like_injection(text: str) -> bool:

@@ -2,16 +2,17 @@ import json
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import timedelta
 from typing import Any, TypeVar
 
 import pytest
 from celery.exceptions import SoftTimeLimitExceeded
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.answering import router, tasks
+from app.answering import router, service, tasks
 from app.llm.gateway import CompletionMeta, LLMOutputInvalidError, ProviderUnavailableError
 from app.llm.mock import MockGateway
 from app.models import Chunk, Question
@@ -116,6 +117,27 @@ def test_duplicate_delivery_is_noop(
     assert client.get(f"/api/questions/{body['id']}").json() == body
 
 
+@pytest.mark.parametrize(("age_min", "claimed"), [(11, True), (1, False)])
+def test_redelivered_stuck_question_is_reclaimed_only_when_stale(
+    client: TestClient, db_session: Session, env: dict[str, Any], age_min: int, claimed: bool
+) -> None:
+    response = client.post("/api/questions", json={"question": WATER_QUESTION})
+    qid = uuid.UUID(response.json()["id"])
+    # A worker died mid-task: the row stays `processing` and the broker redelivers.
+    db_session.execute(
+        update(Question)
+        .where(Question.id == qid)
+        .values(status="processing", created_at=func.now() - timedelta(minutes=age_min))
+    )
+    db_session.commit()
+
+    tasks.answer_question.apply(args=[str(qid)], throw=True)
+
+    body = client.get(f"/api/questions/{qid}").json()
+    assert body["status"] == ("answered" if claimed else "processing")
+    assert env["gateway"].completions == (1 if claimed else 0)
+
+
 def test_out_of_domain_question_no_evidence(client: TestClient, env: dict[str, Any]) -> None:
     body = _ask(client, "¿Quién ganó el Mundial de fútbol de 2010?")
 
@@ -143,10 +165,27 @@ def test_malicious_doc_does_not_change_answer(
 
 
 def test_provider_down_returns_extractive_degraded(
-    client: TestClient, db_session: Session, env: dict[str, Any]
+    client: TestClient, db_session: Session, env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    span_attrs: dict[str, object] = {}
+
+    class RecordingSpan:
+        def set_attribute(self, key: str, value: object) -> None:
+            span_attrs[key] = value
+
+        def set_attributes(self, attrs: dict[str, object]) -> None:
+            span_attrs.update(attrs)
+
+    @contextmanager
+    def recording_span(_: object, name: str) -> Iterator[RecordingSpan]:
+        assert name == "answer.validate"
+        yield RecordingSpan()
+
+    monkeypatch.setattr(service, "content_free_span", recording_span)
     env["gateway"] = CompletionDownGateway()
     body = _ask(client, WATER_QUESTION)
+    assert span_attrs["llm.fallback_used"] == "extractive"
+    assert span_attrs["answer.degraded"] is True
 
     assert body["status"] == "answered"
     result = body["result"]
