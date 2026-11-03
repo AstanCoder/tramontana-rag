@@ -4,7 +4,7 @@ import type { DocType, QuestionFilters } from "../api/types";
 import { DOC_TYPE_LABELS } from "../labels";
 import { ErrorMessage } from "./ErrorMessage";
 
-export function AskForm({ onAsked }: { onAsked: (questionId: string) => void }) {
+export function AskForm({ onAsked }: { onAsked: (questionId: string, question: string) => void }) {
   const ask = useAskQuestion();
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -15,7 +15,8 @@ export function AskForm({ onAsked }: { onAsked: (questionId: string) => void }) 
     if (text("doc_type")) filters.doc_type = text("doc_type") as DocType;
     for (const key of ["policy_number", "date_from", "date_to"] as const)
       if (text(key)) filters[key] = text(key);
-    ask.mutate({ question: text("question"), filters }, { onSuccess: (q) => onAsked(q.id) });
+    const question = text("question");
+    ask.mutate({ question, filters }, { onSuccess: (q) => onAsked(q.id, question) });
   }
 
   return (

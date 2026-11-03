@@ -16,9 +16,9 @@ const TABS: { id: Tab; label: string }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("documents");
-  const [questionId, setQuestionId] = useState<string | null>(null);
+  // Session-local history (newest first): each question is answered on its own, not as a dialogue.
+  const [asked, setAsked] = useState<{ id: string; text: string }[]>([]);
   const [citation, setCitation] = useState<Citation | null>(null);
-  const question = useQuestion(questionId);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
@@ -50,20 +50,40 @@ export default function App() {
         <div className={citation ? "grid gap-4 lg:grid-cols-2" : ""}>
           <div className="space-y-4">
             <AskForm
-              onAsked={(id) => {
-                setQuestionId(id);
+              onAsked={(id, text) => {
+                setAsked((prev) => [{ id, text }, ...prev]);
                 setCitation(null);
               }}
             />
-            {questionId && (question.error ? (
-              <ErrorMessage error={question.error} />
-            ) : (
-              <AnswerCard question={question.data} onSelectCitation={setCitation} />
+            {asked.map((q) => (
+              <AskedQuestion key={q.id} id={q.id} text={q.text} onSelectCitation={setCitation} />
             ))}
           </div>
           {citation && <CitationViewer citation={citation} onClose={() => setCitation(null)} />}
         </div>
       </div>
     </div>
+  );
+}
+
+function AskedQuestion({
+  id,
+  text,
+  onSelectCitation,
+}: {
+  id: string;
+  text: string;
+  onSelectCitation: (citation: Citation) => void;
+}) {
+  const question = useQuestion(id);
+  return (
+    <article className="space-y-2">
+      <p className="whitespace-pre-wrap rounded-md bg-slate-100 p-3 text-sm font-medium">{text}</p>
+      {question.error ? (
+        <ErrorMessage error={question.error} />
+      ) : (
+        <AnswerCard question={question.data} onSelectCitation={onSelectCitation} />
+      )}
+    </article>
   );
 }

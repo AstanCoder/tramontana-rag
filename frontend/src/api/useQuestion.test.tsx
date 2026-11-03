@@ -11,6 +11,7 @@ const q = (status: QuestionOut["status"]): QuestionOut => ({
   created_at: "2026-01-01T00:00:00Z",
   result: null,
   error_code: null,
+  trace_id: null,
 });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 

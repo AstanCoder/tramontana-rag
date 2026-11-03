@@ -1,4 +1,5 @@
 import type { Citation } from "../api/types";
+import { pageLabel } from "../labels";
 
 export function CitationViewer({ citation, onClose }: { citation: Citation; onClose: () => void }) {
   const { document_id: id, page } = citation;
@@ -6,7 +7,7 @@ export function CitationViewer({ citation, onClose }: { citation: Citation; onCl
     <aside aria-label="Documento citado" className="flex h-full flex-col gap-2 rounded-md border border-slate-200 bg-white p-3">
       <div className="flex items-start justify-between gap-2">
         <h2 className="font-semibold">
-          {citation.document_title} · pág. {page}
+          {citation.document_title} · {pageLabel(citation)}
         </h2>
         <button type="button" className="btn-secondary" onClick={onClose}>
           Cerrar

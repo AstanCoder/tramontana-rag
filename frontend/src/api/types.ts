@@ -46,6 +46,7 @@ export interface Citation {
   document_id: string;
   document_title: string;
   page: number;
+  page_end: number;
   fragment: string;
   chunk_id: string;
 }
@@ -65,4 +66,5 @@ export interface QuestionOut {
   created_at: string;
   result: AnswerOut | null;
   error_code: string | null;
+  trace_id: string | null;
 }

@@ -1,5 +1,5 @@
 import type { Citation, Confidence, QuestionOut } from "../api/types";
-import { errorLabel } from "../labels";
+import { errorLabel, pageLabel } from "../labels";
 
 const CONFIDENCE: Record<Confidence, string> = {
   high: "Confianza alta",
@@ -28,6 +28,7 @@ function Body({ question, onSelectCitation }: Props) {
     return (
       <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900">
         {errorLabel(question.error_code, "No se pudo generar la respuesta.")}
+        {question.trace_id && <span className="mt-1 block text-xs text-red-700">trace_id: {question.trace_id}</span>}
       </p>
     );
 
@@ -64,7 +65,7 @@ function Body({ question, onSelectCitation }: Props) {
               <li key={c.chunk_id}>
                 <button type="button" className="btn-citation" onClick={() => onSelectCitation(c)}>
                   <span className="font-medium">
-                    {c.document_title} · pág. {c.page}
+                    {c.document_title} · {pageLabel(c)}
                   </span>
                   <span className="line-clamp-2 block text-slate-600">{c.fragment}</span>
                 </button>

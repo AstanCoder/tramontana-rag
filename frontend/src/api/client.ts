@@ -19,7 +19,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     const e = body?.error;
     throw new ApiError(
       e?.code ?? "internal_error",
-      e?.message ?? res.statusText,
+      e?.message ?? `Error del servidor (HTTP ${res.status}).`,
       e?.trace_id ?? null,
       res.status,
     );

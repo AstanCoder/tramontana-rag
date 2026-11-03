@@ -1,4 +1,4 @@
-import type { DocType, DocumentStatus } from "./api/types";
+import type { Citation, DocType, DocumentStatus } from "./api/types";
 
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
   policy: "Póliza",
@@ -18,6 +18,7 @@ export const STATUS_LABELS: Record<DocumentStatus, string> = {
 export const ERROR_LABELS: Record<string, string> = {
   corrupt_document: "El PDF está dañado.",
   unreadable_document: "No se pudo leer el contenido del PDF.",
+  too_many_pages: "El PDF supera el número máximo de páginas.",
   provider_unavailable: "El proveedor de IA no está disponible.",
   ingestion_error: "Error al procesar el documento.",
   ingestion_timeout: "El procesamiento del documento tardó demasiado.",
@@ -25,6 +26,9 @@ export const ERROR_LABELS: Record<string, string> = {
   answer_timeout: "La respuesta tardó demasiado tiempo.",
   answer_error: "No se pudo generar la respuesta.",
 };
+
+export const pageLabel = ({ page, page_end }: Pick<Citation, "page" | "page_end">): string =>
+  page_end > page ? `págs. ${page}–${page_end}` : `pág. ${page}`;
 
 export const errorLabel = (code: string | null, fallback = "Ha ocurrido un error."): string =>
   (code && ERROR_LABELS[code]) || fallback;

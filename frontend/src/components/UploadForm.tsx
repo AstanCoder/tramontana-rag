@@ -4,6 +4,7 @@ import { DOC_TYPE_LABELS } from "../labels";
 import type { DocType } from "../api/types";
 import { ErrorMessage } from "./ErrorMessage";
 
+// Mirrors the backend's MAX_UPLOAD_MB default (and nginx client_max_body_size): change them together.
 const MAX_BYTES = 25 * 1024 * 1024;
 
 export function UploadForm() {

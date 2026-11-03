@@ -12,9 +12,13 @@ describe("apiFetch", () => {
     expect(err).toMatchObject({ code: "file_too_large", traceId: "abc", status: 413, message: "Demasiado grande" });
   });
 
-  it("falls back to internal_error when the body is not an envelope", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>", { status: 502 })));
-    await expect(apiFetch("/api/x")).rejects.toMatchObject({ code: "internal_error", status: 502 });
+  it("falls back to internal_error with a Spanish message when the body is not an envelope", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>", { status: 502, statusText: "Bad Gateway" })));
+    await expect(apiFetch("/api/x")).rejects.toMatchObject({
+      code: "internal_error",
+      status: 502,
+      message: "Error del servidor (HTTP 502).",
+    });
   });
 
   it("returns parsed JSON on success", async () => {
