@@ -1,11 +1,12 @@
 import logging
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 
 import structlog
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
-from structlog.typing import EventDict, WrappedLogger
+from structlog.typing import EventDict, Processor, WrappedLogger
 
 
 def current_trace_id() -> str | None:
@@ -22,13 +23,29 @@ def _add_trace_context(_: WrappedLogger, __: str, event_dict: EventDict) -> Even
     return event_dict
 
 
+# These log file paths, prompts or request URLs at INFO/DEBUG; only their warnings are kept.
+_CONTENT_LOGGERS = (
+    "docling",
+    "docling_core",
+    "docling_ibm_models",
+    "docling_parse",
+    "httpx",
+    "LiteLLM",
+    "LiteLLM Router",
+    "LiteLLM Proxy",
+)
+
+
 def configure_logging(level: str) -> None:
+    shared: list[Processor] = [
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        _add_trace_context,
+    ]
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso", utc=True),
-            _add_trace_context,
+            *shared,
             structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(
@@ -37,6 +54,20 @@ def configure_logging(level: str) -> None:
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
+    # Stdlib loggers (celery, libraries) go through the same JSON rendering.
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+        structlog.stdlib.ProcessorFormatter(
+            processor=structlog.processors.JSONRenderer(),
+            foreign_pre_chain=[structlog.stdlib.add_logger_name, *shared],
+        )
+    )
+    logging.basicConfig(handlers=[handler], level=level.upper(), force=True)
+    for name in _CONTENT_LOGGERS:
+        library_logger = logging.getLogger(name)
+        library_logger.handlers.clear()  # LiteLLM attaches its own plain-text handler
+        library_logger.propagate = True
+        library_logger.setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:

@@ -25,11 +25,11 @@ _chunk_count = (
 )
 
 
-def _out_query() -> Select[Document, int]:
+def _out_query() -> Select[tuple[Document, int]]:
     return select(Document, _chunk_count)
 
 
-def _to_out(row: Row[Document, int]) -> DocumentOut:
+def _to_out(row: Row[tuple[Document, int]]) -> DocumentOut:
     document, chunk_count = row
     fields = DocumentOut.model_fields.keys() - {"chunk_count"}
     return DocumentOut(**{f: getattr(document, f) for f in fields}, chunk_count=chunk_count)
