@@ -35,8 +35,9 @@ ella, este documento lo explica.
 **Cómo se mide.**
 - El eval (`backend/eval/`) mide hit@6 y MRR sobre documento **y página** esperados. Incluye preguntas sobre
   tabla (q01, q04, q05), cláusula (q02, q03), condicionado (q06, q07), carta (q08) y escaneado (q09).
-- Cada parámetro (`MAX_TOKENS`, k de RRF, top_n, solo vectorial frente a híbrida) se cambia y se vuelve a pasar
-  el eval.
+- Para ajustar un parámetro (`MAX_TOKENS`, k de RRF, top_n) se cambia en el código y se vuelve a pasar el eval.
+  Comparar solo vectorial frente a híbrida se mediría igual, quitando la rama full-text de `search`; el eval no
+  tiene ese modo y esa comparación no se ha hecho.
 - Con el mock: hit@6 1,00 y MRR 0,88. Es una referencia del arnés, no de Gemini; falta la ejecución con key
   (ver README, limitaciones).
 
@@ -185,7 +186,9 @@ a reingestar (README).
 **Coste.** Más memoria y construcción e inserción más lentas que IVFFlat. Para miles de PDF (cientos de miles
 de chunks) es asumible.
 
-**Cómo se mide.** hit@6 y MRR del eval, comparando con la búsqueda exacta (sin índice) sobre los mismos datos.
+**Cómo se mediría.** Repitiendo el eval con el índice desactivado (`SET enable_indexscan = off`, búsqueda exacta)
+y comparando hit@6 y MRR. No se ha hecho: con los samples hay pocas decenas de chunks y la diferencia sería
+nula; tiene sentido con un corpus real.
 
 ## 7. Las preguntas también pasan por Celery
 
@@ -281,8 +284,10 @@ un duplicado; el token sí.
 
 **Coste.**
 - Un documento atascado espera 20 min antes de poder reintentarse.
-- Con una key inválida, la ingesta agota sus reintentos (~3,5 min) antes de marcarse `failed`. Distinguir error
-  de autenticación de error transitorio era más código para un caso de configuración.
+- Si LiteLLM devuelve una key inválida como error de autenticación, la ingesta agota sus reintentos (~3,5 min)
+  antes de quedar `failed` / `provider_unavailable`. Distinguir error de autenticación de error transitorio era
+  más código para un caso de configuración. No está comprobado con Gemini real: si responde con un HTTP 400
+  genérico, ese error no está mapeado y el documento queda `failed` / `ingestion_error` sin reintentos.
 
 **Cómo se mide.** Tests de integración contra Postgres real:
 - claim con el mismo y con otro `task_id`;
@@ -438,4 +443,5 @@ Descartado
 
 **Lo que queda pendiente por no tener key.**
 - Ejecutar el eval con Gemini y calibrar el 0,55.
-- Verificar con el modelo real la salida estructurada, los tokens y la detección de fallback.
+- Verificar con el modelo real la salida estructurada, los tokens, la detección de fallback y qué error
+  devuelve Gemini ante una key inválida.

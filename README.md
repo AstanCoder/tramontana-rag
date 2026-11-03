@@ -124,8 +124,9 @@ Los PDF de `samples/` son sintéticos; `samples/manifest.yaml` tiene los metadat
 la póliza y la fecha del manifest. Con `curl`:
 
 ```bash
-up() { curl -s http://localhost:8000/api/documents -F "file=@samples/$1" -F "doc_type=$2" \
-         ${3:+-F "policy_number=$3"} ${4:+-F "document_date=$4"} -F "title=$5"; echo; }
+up() { local a=(-F "file=@samples/$1" -F "doc_type=$2" -F "title=$5")
+       [ -n "$3" ] && a+=(-F "policy_number=$3"); [ -n "$4" ] && a+=(-F "document_date=$4")
+       curl -s http://localhost:8000/api/documents "${a[@]}"; echo; }   # vale en bash y zsh
 up poliza-hogar-TRM-HOG-2024-00123.pdf          policy             TRM-HOG-2024-00123 2024-01-15 "Póliza de hogar TRM-HOG-2024-00123"
 up poliza-hogar-TRM-HOG-2024-00123-v2.pdf       policy             TRM-HOG-2024-00123 2025-01-15 "Póliza de hogar TRM-HOG-2024-00123 (versión 2)"
 up condicionado-general-hogar.pdf               general_conditions ""                 2023-06-01 "Condicionado general del seguro de hogar"
@@ -195,9 +196,10 @@ pero la generación falla (modelo inexistente). La respuesta sale con `degraded=
 texto "No se pudo generar una respuesta en este momento…" y los tres mejores fragmentos como citas. La UI
 muestra un aviso de modo degradado y el span `answer.validate` lleva `llm.fallback_used=extractive`.
 
-Con una **key inválida** no hay modo degradado: sin embeddings de la pregunta no hay recuperación. La pregunta
-acaba `failed` con `error_code=provider_unavailable` y la UI enseña el mensaje y el `trace_id`. Una ingesta
-con key inválida agota sus reintentos (~3,5 min) y queda `failed` / `provider_unavailable`, reintentable.
+Con una **key inválida** no hay modo degradado: sin embeddings de la pregunta no hay recuperación, así que la
+pregunta acaba `failed` y la UI enseña el mensaje y el `trace_id`. Se espera `error_code=provider_unavailable`
+(el gateway mapea los errores de autenticación de LiteLLM), pero no está comprobado con Gemini real: si Gemini
+responde a una key inválida con un HTTP 400 genérico, el error no está mapeado y quedaría `answer_error`.
 
 **5. La traza.** `GET /api/questions/{id}` devuelve el `trace_id`. En Jaeger, buscarlo (o elegir el servicio
 `tramontana-api` y la operación `POST /api/questions`). La traza contiene:
@@ -283,7 +285,9 @@ Todos los requisitos de la prueba:
   - `dimensions=768` en los embeddings;
   - la detección de `fallback_used` por el nombre de modelo de la respuesta;
   - los atributos de tokens;
-  - la receta de modo degradado.
+  - la receta de modo degradado;
+  - el comportamiento con una key inválida (se espera `failed` / `provider_unavailable` en preguntas e
+    ingesta, pero un HTTP 400 genérico de Gemini acabaría en `answer_error` / `ingestion_error`).
 
   El reporte de eval incluido es del mock (keyword_recall 0,45; el mock no redacta respuestas).
 - **El umbral 0,55 para Gemini no está calibrado**: es un valor inicial. El 0,40 del mock sí se midió sobre el
