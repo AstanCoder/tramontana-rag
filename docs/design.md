@@ -172,7 +172,7 @@ README.md, DECISIONS.md
 
 ### 7.3 Recuperación
 - Vectorial: top 20 por coseno (HNSW, `SET LOCAL hnsw.iterative_scan=relaxed_order` para no perder resultados
-  al filtrar; como puede devolver el orden alterado, se reordena por distancia antes de RRF y del umbral). FTS: top 20 con `websearch_to_tsquery('spanish')`. Fusión RRF (k=60) → top 6 al LLM.
+  al filtrar; como puede devolver el orden alterado, se reordena por distancia antes de RRF y del umbral). FTS: top 20 con semántica OR (`plainto_tsquery('spanish')` con `&` → `|`), porque una pregunta natural rara vez tiene todos sus términos en un mismo chunk. Fusión RRF (k=60) → top 6 al LLM.
 - Filtros (join con `documents`): `status='ready'`, `is_current` (salvo `include_superseded`), `doc_type`,
   `policy_number`, `document_date` dentro de `[date_from, date_to]`. Los chunks `suspicious` se excluyen del
   contexto.
