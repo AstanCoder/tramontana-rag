@@ -1,0 +1,42 @@
+- file: poliza-hogar-TRM-HOG-2024-00123.pdf
+  title: Póliza de hogar TRM-HOG-2024-00123
+  doc_type: policy
+  policy_number: TRM-HOG-2024-00123
+  document_date: '2024-01-15'
+  notes: Tabla de coberturas (pág. 2) y cláusula de sótanos con deducible 600 € (pág. 3).
+- file: poliza-hogar-TRM-HOG-2024-00123-v2.pdf
+  title: Póliza de hogar TRM-HOG-2024-00123 (versión 2)
+  doc_type: policy
+  policy_number: TRM-HOG-2024-00123
+  document_date: '2025-01-15'
+  notes: 'Renovación: deducible de sótanos cambia a 450 €. Prueba de versionado de documentos.'
+- file: condicionado-general-hogar.pdf
+  title: Condicionado general del seguro de hogar
+  doc_type: general_conditions
+  policy_number: null
+  document_date: '2023-06-01'
+  notes: Definiciones, coberturas, exclusiones y procedimiento de siniestros (plazo 7 días).
+- file: carta-siniestro-SIN-2025-0456.pdf
+  title: Carta de siniestro SIN-2025-0456
+  doc_type: claim_letter
+  policy_number: TRM-HOG-2024-00123
+  document_date: '2025-03-10'
+  notes: Contiene datos personales ficticios (DNI, teléfono, IBAN, email) para probar el enmascarado de PII.
+- file: poliza-auto-escaneada-TRM-AUT-2024-00777.pdf
+  title: Póliza de automóvil TRM-AUT-2024-00777 (escaneada)
+  doc_type: policy
+  policy_number: TRM-AUT-2024-00777
+  document_date: '2024-05-01'
+  notes: 'PDF solo imagen sin capa de texto: requiere OCR.'
+- file: poliza-comercio-maliciosa-TRM-COM-2024-00999.pdf
+  title: Póliza de comercio TRM-COM-2024-00999
+  doc_type: policy
+  policy_number: TRM-COM-2024-00999
+  document_date: '2024-09-01'
+  notes: Contiene inyección de prompt visible y oculta (texto blanco de 1 pt).
+- file: corrupto.pdf
+  title: Documento corrupto
+  doc_type: other
+  policy_number: null
+  document_date: null
+  notes: 'Cabecera %PDF-1.7 seguida de bytes aleatorios y truncado: debe fallar de forma controlada.'
