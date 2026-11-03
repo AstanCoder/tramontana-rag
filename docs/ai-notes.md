@@ -7,3 +7,6 @@
 - Assumed `litellm.embedding(num_retries=...)` retries (and the brief's design implied it) → it does not in 1.106 (only completion); embeddings go through a second `Router`, whose `embedding` retries with backoff.
 - Wrote `Select[tuple[Document, int]]` / `Row[tuple[...]]` from memory of SQLAlchemy 1.4/2.0 typing → SQLAlchemy 2.1 uses variadic generics (`Select[Document, int]`) and deprecates `Result.tuples()`; fixed after mypy/pytest warnings.
 - Assumed `celery` ships type hints → it does not; added `celery-types` as dev dep so mypy strict passes without ignores.
+- `celery-types` makes `Task` generic only in the stubs; `self: Task[[str], None]` crashed at import (`type 'Task' is not subscriptable`) → quoted the annotation.
+- mypy strict rejects `from docling_core.types.doc import DoclingDocument` / `transforms.chunker import DocChunk` (implicit re-exports) and `DoclingDocument.num_pages()` is untyped → imported from the defining modules and used `len(doc.pages)`.
+- Docling emits its own `DeprecationWarning`s (`force_full_page_ocr`, `generate_table_images`) while reading default options we never set → filtered those two messages in pytest config.
