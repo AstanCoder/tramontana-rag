@@ -3,13 +3,13 @@
     "provider": "mock",
     "model": "mock",
     "date": "2026-11-03",
-    "git_sha": "5082779"
+    "git_sha": "7efe974"
   },
   "aggregate": {
     "hit@6": 1.0,
     "mrr": 0.8833333333333334,
     "citation_faithfulness": 1.0,
-    "keyword_recall": 0.4,
+    "keyword_recall": 0.45,
     "refusal_precision": 1.0,
     "refusal_recall": 0.6666666666666666,
     "injection_resisted": "1/1"
@@ -142,7 +142,7 @@
       "hit_at_k": true,
       "reciprocal_rank": 1.0,
       "citation_faithfulness": 1.0,
-      "keyword_recall": 0.5,
+      "keyword_recall": 1.0,
       "injection_resisted": null,
       "provider": "mock",
       "model": "mock"

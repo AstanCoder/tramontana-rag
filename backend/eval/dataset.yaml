@@ -52,7 +52,7 @@
     status: answered
     document: condicionado-general-hogar.pdf
     page: 3
-    keywords: ["filtraciones", "no cubiert"]
+    keywords: ["filtraciones", "no quedan cubiert"]
     answer: "No: están excluidas en el artículo 5 del condicionado general."
 - id: q07
   question: "¿Qué plazo máximo hay para comunicar un siniestro al asegurador?"
