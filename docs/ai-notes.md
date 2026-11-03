@@ -17,3 +17,4 @@
 - Took the latest `typescript` (7.0.2) as the frontend default → `typescript-eslint` 8.72 only supports `<6.1`, so pinned `typescript` 6.0.3.
 - Assumed `[tool.uv.sources]` would redirect the transitive `torch` to the CPU index → uv only applies sources to direct dependencies (the lock still pulled ~3 GB of CUDA wheels on Linux); added `torch`/`torchvision` as direct deps with a Linux-only `pytorch-cpu` index.
 - Brief says `uvicorn app.main:app` → `app.main` only exposes the `create_app` factory, so the entrypoint uses `uvicorn app.main:create_app --factory`.
+- Assumed CI should set OTEL_SDK_DISABLED=true like .env.example → the OTel SDK itself honors that env var and no-ops the tracer provider, breaking the tracing tests; dropped it from CI (Settings already defaults to true).
