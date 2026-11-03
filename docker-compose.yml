@@ -1,0 +1,90 @@
+x-backend: &backend
+  build: ./backend
+  image: tramontana-backend
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+psycopg://tramontana:tramontana@postgres:5432/tramontana
+    REDIS_URL: redis://redis:6379/0
+    UPLOAD_DIR: /data/uploads
+    LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    OTEL_SDK_DISABLED: "false"
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  volumes:
+    - uploads:/data/uploads
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    otel-collector:
+      condition: service_started
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17
+    environment:
+      POSTGRES_USER: tramontana
+      POSTGRES_PASSWORD: tramontana
+      POSTGRES_DB: tramontana
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tramontana -d tramontana"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    <<: *backend
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  worker:
+    <<: *backend
+    # Default prefork pool: telemetry is initialised per child in worker_process_init.
+    command: ["celery", "-A", "app.worker", "worker", "--loglevel=INFO", "--concurrency=2"]
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.164.0
+    command: ["--config=/etc/otelcol/collector-${OTEL_COLLECTOR_CONFIG:-local}.yaml"]
+    environment:
+      DD_API_KEY: ${DD_API_KEY:-}
+      DD_SITE: ${DD_SITE:-datadoghq.com}
+    volumes:
+      - ./infra/otel:/etc/otelcol:ro
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    ports:
+      - "16686:16686"
+
+volumes:
+  uploads:
+  pgdata:

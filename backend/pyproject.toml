@@ -23,6 +23,8 @@ dependencies = [
     "python-multipart>=0.0.33",
     "sqlalchemy>=2,<2.1",
     "structlog>=26.1.0",
+    "torch>=2.15.0",
+    "torchvision>=0.29.2",
     "uvicorn[standard]>=0.54.0",
 ]
 
@@ -41,6 +43,16 @@ dev = [
 
 [tool.uv]
 package = false
+
+# Linux (the Docker image) gets CPU-only torch; PyPI's Linux wheels pull ~3 GB of CUDA libraries.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu", marker = "sys_platform == 'linux'" }
+torchvision = { index = "pytorch-cpu", marker = "sys_platform == 'linux'" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.ruff]
 line-length = 100

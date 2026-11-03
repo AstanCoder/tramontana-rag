@@ -15,3 +15,5 @@
 - Did not expect FastAPI 0.162 to ship native OpenTelemetry → it traces any app once a global provider exists (and its logs carry exception text); disabled its tracing/logs and kept the contrib instrumentor, which excludes `/health`.
 - Gave each tracing test its own `InMemorySpanExporter` → the global tracer provider is set once per process, so later exporters got nothing; made the exporter module-scoped.
 - Took the latest `typescript` (7.0.2) as the frontend default → `typescript-eslint` 8.72 only supports `<6.1`, so pinned `typescript` 6.0.3.
+- Assumed `[tool.uv.sources]` would redirect the transitive `torch` to the CPU index → uv only applies sources to direct dependencies (the lock still pulled ~3 GB of CUDA wheels on Linux); added `torch`/`torchvision` as direct deps with a Linux-only `pytorch-cpu` index.
+- Brief says `uvicorn app.main:app` → `app.main` only exposes the `create_app` factory, so the entrypoint uses `uvicorn app.main:create_app --factory`.
