@@ -1,0 +1,47 @@
+[project]
+name = "tramontana-backend"
+version = "0.1.0"
+description = "Tramontana RAG backend"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.162.0",
+    "opentelemetry-api>=1.45.2",
+    "pydantic-settings>=2.16.2",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+files = ["app"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["integration: needs real Postgres/Redis (testcontainers)"]
+filterwarnings = [
+    # Starlette nudges towards httpx2; the brief pins httpx for TestClient.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

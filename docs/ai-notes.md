@@ -1,0 +1,2 @@
+- Assumed pydantic-settings would parse comma-separated env lists (it expects JSON for list fields) → used `NoDecode` + a before-validator to split CSV.
+- Brief pins `httpx` for TestClient but current Starlette emits a deprecation warning pushing `httpx2` (unvetted package) → kept `httpx`, filtered only that warning in pytest config.

@@ -2,3 +2,13 @@
 .env
 .superpowers/
 .DS_Store
+/data/
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+dist/
+coverage/
