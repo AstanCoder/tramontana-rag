@@ -62,7 +62,12 @@ services:
   worker:
     <<: *backend
     # Default prefork pool: telemetry is initialised per child in worker_process_init.
-    command: ["celery", "-A", "app.worker", "worker", "--loglevel=INFO", "--concurrency=2"]
+    command: ["celery", "-A", "app.worker", "worker", "-Q", "celery", "--loglevel=INFO", "--concurrency=2"]
+
+  # Questions on their own queue so a long ingestion never leaves an adjuster waiting.
+  worker-questions:
+    <<: *backend
+    command: ["celery", "-A", "app.worker", "worker", "-Q", "questions", "-n", "questions@%h", "--loglevel=INFO", "--concurrency=2"]
 
   frontend:
     build: ./frontend

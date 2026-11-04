@@ -23,3 +23,14 @@ def test_process_shutdown_flushes_batched_spans(monkeypatch: pytest.MonkeyPatch)
 def test_process_shutdown_is_a_noop_without_sdk_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(trace, "get_tracer_provider", trace.ProxyTracerProvider)
     _flush_telemetry()
+
+
+def test_questions_have_their_own_queue() -> None:
+    # A long ingestion must not hold every worker slot while an adjuster waits for an answer.
+    from app.answering.tasks import answer_question
+    from app.ingestion.tasks import ingest_document
+    from app.worker import celery_app
+
+    route = celery_app.amqp.router.route
+    assert route({}, answer_question.name)["queue"].name == "questions"
+    assert route({}, ingest_document.name)["queue"].name == "celery"

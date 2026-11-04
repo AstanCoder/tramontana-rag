@@ -54,7 +54,7 @@ def client(
     try:
         with (
             pytest.MonkeyPatch.context() as mp,
-            start_worker(celery_app, perform_ping_check=False, pool="solo"),
+            start_worker(celery_app, perform_ping_check=False, pool="solo", queues=["questions"]),
         ):
             mp.setattr(tasks, "get_gateway", MockGateway)
             yield TestClient(create_app(), raise_server_exceptions=False)

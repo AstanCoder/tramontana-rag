@@ -24,6 +24,8 @@ celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
+    # Questions take seconds and ingestion up to 16 min: separate queues, separate workers.
+    task_routes={"app.answering.tasks.answer_question": {"queue": "questions"}},
 )
 
 
