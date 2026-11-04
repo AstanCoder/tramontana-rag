@@ -18,6 +18,10 @@ from app.pii import extract_policy_number, redact
 log = get_logger(__name__)
 _tracer = trace.get_tracer("app.ingestion")
 
+# First run + 3 provider retries + 1 redelivery after a worker crash. Past it, a redelivered
+# task is a PDF that kills the worker (e.g. Docling OOM) and would loop forever under acks_late.
+MAX_INGEST_ATTEMPTS = 5
+
 
 def claim_document(session: Session, document_id: uuid.UUID, task_id: str) -> Document | None:
     """Atomically take ownership; only the task whose id was stored at enqueue time wins."""
@@ -90,6 +94,12 @@ def run_ingestion(session: Session, document_id: uuid.UUID, task_id: str, gatewa
     document = claim_document(session, document_id, task_id)
     if document is None:
         log.info("ingest.duplicate_skipped", document_id=str(document_id))
+        return
+    if document.attempts > MAX_INGEST_ATTEMPTS:
+        document.status = DocumentStatus.failed
+        document.error_code = "ingestion_error"
+        session.commit()
+        log.warning("ingest.attempts_exhausted", document_id=str(document_id))
         return
     session.commit()  # publish `processing` before the long parse/embed steps
     started = time.perf_counter()

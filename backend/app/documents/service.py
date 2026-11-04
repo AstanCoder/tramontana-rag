@@ -128,5 +128,6 @@ def retry_document(session: Session, document_id: uuid.UUID) -> Document:
         raise AppError("invalid_state", "El documento no se puede reintentar ahora", 409)
     document.status = DocumentStatus.pending
     document.error_code = None
+    document.attempts = 0  # a manual retry gets a fresh attempt budget
     enqueue_ingestion(session, document)
     return document

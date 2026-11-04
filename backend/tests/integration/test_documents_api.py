@@ -133,7 +133,9 @@ def test_retry_only_from_failed_or_stale_lease(
 ) -> None:
     now = datetime.now(UTC)
     ready = _doc(db_session, status=DocumentStatus.ready)
-    failed = _doc(db_session, status=DocumentStatus.failed, error_code="corrupt_document")
+    failed = _doc(
+        db_session, status=DocumentStatus.failed, error_code="ingestion_error", attempts=5
+    )
     fresh = _doc(
         db_session,
         status=DocumentStatus.processing,
@@ -157,6 +159,8 @@ def test_retry_only_from_failed_or_stale_lease(
     assert retried.status_code == 200
     assert retried.json()["status"] == "pending"
     assert retried.json()["error_code"] is None
+    db_session.refresh(failed)
+    assert failed.attempts == 0  # a manual retry gets a fresh attempt budget
     assert client.post(f"/api/documents/{stale.id}/retry").status_code == 200
     assert client.post(f"/api/documents/{lost_pending.id}/retry").status_code == 200
     assert enqueued == [failed.id, stale.id, lost_pending.id]

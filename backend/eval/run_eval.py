@@ -168,6 +168,7 @@ def ingest_samples(
         task_id = f"{EVAL_TASK_PREFIX}{uuid.uuid4()}"
         document.status = DocumentStatus.pending
         document.error_code = None
+        document.attempts = 0  # earlier crashed runs must not exhaust the ingestion budget
         document.ingest_task_id = task_id
         session.commit()
         run_ingestion(session, document.id, task_id, gateway)

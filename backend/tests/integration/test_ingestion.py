@@ -127,6 +127,40 @@ def test_claim_rejects_other_task_id_accepts_same(db_session: Session) -> None:
     assert claim_document(db_session, doc.id, "a") is None
 
 
+def test_redelivery_past_attempt_budget_fails_without_parsing(db_session: Session) -> None:
+    # e.g. Docling OOM-kills the worker child: acks_late redelivers the same task id forever.
+    doc = _doc(
+        db_session,
+        CLAIM_LETTER,
+        status=DocumentStatus.processing,
+        attempts=service.MAX_INGEST_ATTEMPTS,
+    )
+    spy = SpyGateway()
+
+    run_ingestion(db_session, doc.id, "t1", spy)
+
+    db_session.refresh(doc)
+    assert doc.status == DocumentStatus.failed
+    assert doc.error_code == "ingestion_error"
+    assert spy.embedded == []
+    assert _chunks(db_session, doc) == []
+
+
+def test_last_attempt_within_budget_still_ingests(db_session: Session) -> None:
+    doc = _doc(
+        db_session,
+        CLAIM_LETTER,
+        status=DocumentStatus.processing,
+        attempts=service.MAX_INGEST_ATTEMPTS - 1,
+    )
+
+    run_ingestion(db_session, doc.id, "t1", MockGateway())
+
+    db_session.refresh(doc)
+    assert doc.status == DocumentStatus.ready
+    assert doc.attempts == service.MAX_INGEST_ATTEMPTS
+
+
 def test_duplicate_task_is_noop(db_session: Session) -> None:
     doc = _doc(db_session, CLAIM_LETTER)
     run_ingestion(db_session, doc.id, "t1", MockGateway())
