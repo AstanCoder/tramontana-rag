@@ -39,7 +39,9 @@ Trabajo pendiente, por prioridad:
       `question.model`/`provider`.
    6. Actualizar las listas de "sin verificar" en `README.md` y `DECISIONS.md` con lo observado. Incluye qué
       error devuelve Gemini ante una key inválida: si es HTTP 400, mapearlo o documentarlo.
-2. **Opcionales de baja prioridad**, detectados en revisión y no bloqueantes:
+2. **Pregunta atascada tras la muerte del worker** (DECISIONS §7): token de dueño para preguntas, como en los
+   documentos, con una migración nueva.
+3. **Opcionales de baja prioridad**, detectados en revisión y no bloqueantes:
    - etiquetas de imágenes con patch flotante (`redis`, `node`, `nginx`);
    - `useDocuments` sigue haciendo polling tras un error si hay filas pendientes en caché;
    - la regla de evidencia por número de 3+ cifras admite cualquier coincidencia full-text;
@@ -68,7 +70,8 @@ infra/otel/              configuración del collector: local (Jaeger) y datadog
 samples/                 PDFs sintéticos + generate.py + manifest.yaml + README (datos y páginas clave)
 docs/design.md           especificación aprobada (registro histórico)
 docs/plan.md             plan de implementación por tareas (registro histórico)
-docker-compose.yml       api, worker, postgres+pgvector, redis, frontend, otel-collector, jaeger
+docker-compose.yml       api, worker (cola celery), worker-questions (cola questions), postgres+pgvector, redis,
+                         frontend, otel-collector, jaeger
 .github/workflows/ci.yml lint + tipos + tests de backend y frontend
 ```
 

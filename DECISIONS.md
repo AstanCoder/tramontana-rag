@@ -118,7 +118,10 @@ de versionado de integración.
 
 **Decisión.**
 - En la ingesta, regex de DNI, NIE, IBAN, email y teléfono → `[DNI]`, `[NIE]`, `[IBAN]`, `[EMAIL]`,
-  `[TELÉFONO]`.
+  `[TELÉFONO]`. DNI, NIE e IBAN aceptan minúsculas y separadores (`12.345.678-Z`, `X-1234567-L`,
+  `ES91-2100-…`). DNI y NIE solo se redactan si la letra de control (módulo 23) es válida, y tras un
+  espacio la letra solo cuenta en mayúscula: así no se tapan importes como "12.345.678 A cargo" o
+  "12.000.000 a primer riesgo". Coste: un DNI escrito "12345678 z" no se redacta.
 - Lo que se embebe y lo que va al LLM es siempre `text_redacted`, y la pregunta también se redacta.
 - El original queda solo en la base de datos interna, donde lo usa la búsqueda full-text, y el PDF en el
   volumen.
@@ -139,7 +142,7 @@ IBAN) son los que más daño hacen si salen, y los que una regex detecta con pre
 - La respuesta enseña el fragmento redactado; el original se ve abriendo el PDF.
 
 **Cómo se mide.** Tests de PII. Un test de integración comprueba que el DNI y el nombre de la carta no llegan a
-los logs. En la verificación final, `docker compose logs api worker | grep -c 12345678Z` da 0.
+los logs. En la verificación final, `docker compose logs api worker worker-questions | grep -c 12345678Z` da 0.
 
 ## 5. Modelo y fallback
 
@@ -199,14 +202,17 @@ hace polling.
 - La prueba pide una traza API → Celery → recuperación → LLM, y así es literal: un test con broker y worker
   reales lo comprueba.
 - Las llamadas lentas al LLM no ocupan workers HTTP.
+- Van a su propia cola (`questions`) y a su propio servicio (`worker-questions`): con una sola cola, dos
+  ingestas largas ocupaban los dos procesos del worker y la pregunta esperaba hasta 16 min.
 - Queda un registro auditable de cada pregunta: resultado, modelo, latencia y `trace_id`.
 
 **Coste.**
 - Una tabla y un polling más, y la latencia de la cola.
-- Las preguntas no tienen token de dueño: si un worker muere, el mensaje se reentrega (`acks_late`) y una fila
-  `processing` con más de 10 min (más que los 540 s del límite duro) se puede reclamar. Una pregunta podría
-  procesarse dos veces solo si además la cola acumula más de 10 min. El resultado se sobrescribe, sin otro
-  efecto.
+- Las preguntas no tienen token de dueño. Si muere el proceso hijo, Celery reentrega el mensaje enseguida
+  (`reject_on_worker_lost`), la fila sigue `processing` con menos de 10 min y la reentrega se descarta: la
+  pregunta se queda `processing`. Solo una reentrega tardía (más de 10 min, más que los 540 s del límite duro)
+  la reclama. Una versión anterior de este documento daba por cubierto el primer caso; la auditoría final lo
+  desmintió. El arreglo es el mismo token de dueño que los documentos, con una migración nueva.
 
 ## 8. Polling frente a SSE
 
@@ -278,6 +284,9 @@ feature hashing y una "respuesta" que cita la frase del chunk con más palabras 
   - la tarea se reintenta hasta 3 veces con 30/60/120 s + jitter, respetando `Retry-After`;
   - después, `failed` / `provider_unavailable`, reintentable.
 - Errores permanentes (PDF corrupto, ilegible, demasiadas páginas) → `failed` con su código, sin reintento.
+- **Tope de intentos:** el claim incrementa `attempts`. Con `acks_late` y `reject_on_worker_lost`, un PDF que
+  mata al worker (OOM de Docling) se reentregaba con el mismo token para siempre. Pasados 5 intentos (1 + 3
+  reintentos del proveedor + 1 reentrega) queda `failed` / `ingestion_error`. `/retry` pone `attempts` a 0.
 
 **Por qué.** Celery garantiza "al menos una vez". El estado de la fila no basta para distinguir mi reintento de
 un duplicado; el token sí.
@@ -291,6 +300,7 @@ un duplicado; el token sí.
 
 **Cómo se mide.** Tests de integración contra Postgres real:
 - claim con el mismo y con otro `task_id`;
+- reentrega con el presupuesto de intentos agotado;
 - tarea reemplazada a mitad que no escribe;
 - carrera de subidas duplicadas;
 - leases de `/retry`;
@@ -330,9 +340,11 @@ trazas salen hacia Jaeger o Datadog.
 
 **Decisión.** Ninguna capa es suficiente sola:
 1. **Ingesta:** un detector heurístico marca `suspicious` los chunks con patrones de inyección, y se excluyen
-   del contexto.
-2. **Sanitización:** se quitan caracteres de control y zero-width, y cualquier `<doc-` (tolerante a espacios y
-   mayúsculas) en bucle hasta que el texto no cambie.
+   del contexto. Mira el texto sin caracteres invisibles, como lo verá el LLM: un zero-width o un guion
+   blando dentro de "ignora" ya no lo esquiva.
+2. **Sanitización:** se quitan los caracteres de control (salvo salto de línea y tabulador) y todos los de
+   formato Unicode (zero-width, guion blando, bidi, tag characters), y cualquier `<doc-` (tolerante a espacios
+   y mayúsculas) en bucle hasta que el texto no cambie.
 3. **Delimitadores con nonce aleatorio por petición:** `<doc-{nonce} id=… page=…>`. Un documento no puede cerrar
    un bloque cuyo nombre no conoce.
 4. **System prompt:** el contenido de los bloques es dato, nunca instrucción. La pregunta real es solo el
@@ -434,6 +446,26 @@ Implementación
     directa con índice CPU;
   - TypeScript 7 no es compatible con typescript-eslint → 6.0.3;
   - mypy estricto exige importar de los módulos que definen los tipos.
+
+Auditoría posterior a la entrega candidata (varios revisores en paralelo sobre todo el repo; cada hallazgo se
+verificó leyendo o ejecutando el código antes de corregirlo):
+- La redacción de PII no cubría `12345678z`, `12.345.678-Z`, `X-1234567-L` ni IBAN con guiones o en
+  minúsculas: llegaban al proveedor → separadores e `IGNORECASE`, validando la letra de control para
+  no redactar importes (la revisión encontró "12.000.000 a primer riesgo" redactado como DNI).
+- El detector de inyección miraba el texto crudo: un zero-width o un guion blando dentro de "ignora" lo
+  esquivaba, y el saneado se lo entregaba limpio al LLM → detector y saneado quitan los mismos invisibles
+  (categorías Unicode Cc y Cf).
+- Un PDF que mata al worker se reentregaba para siempre (`attempts` se contaba pero nadie lo leía) → tope de
+  5 intentos (§11).
+- El cooldown del Router de LiteLLM tras varios 429 lanza un `ValueError` propio que no llegaba al fallback
+  extractivo → mapeado, con su tiempo de espera como `retry_after`. Un revisor propuso mapear también el
+  bloqueo de contenido de Gemini; en litellm 1.106 llega como respuesta 200 vacía (`content_filter`), que ya
+  cae en el fallback como salida inválida → descartado.
+- Preguntas e ingesta compartían cola: dos ingestas largas dejaban las preguntas esperando → cola propia (§7).
+- El eval no distinguía una respuesta degradada por caída del proveedor → columna y conteo `degraded`.
+- Sin `restart`, un OOM dejaba el worker caído en silencio; CI no construía las imágenes → `restart:
+  unless-stopped` y job `docker compose build`.
+- DECISIONS §7 daba por recuperable una pregunta cuyo worker muere; no lo es → documentado como limitación.
 
 Descartado
 - `httpx2`, el paquete al que empuja un aviso de Starlette: no verificado. Se mantuvo `httpx` y se filtró solo

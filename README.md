@@ -25,13 +25,17 @@ navegador ──▶ frontend (nginx + React SPA, :8080) ──/api──▶ api 
                                                               │ ▲                        ▲
                                          encola ingest_document│ │ polling de estado       │
                                          y answer_question     ▼ │                        │
-                                                            Redis ◀──▶ worker (Celery) ────┘
-                                                                         │ ingest_document: Docling → chunks → embeddings
-                                                                         │ answer_question: recuperación → LLM → validación
-                                                                         ▼
-                                                              LLM gateway (LiteLLM → Gemini | mock)
+                                                             Redis                        │
+                                         cola celery ┌─────────┴─────────┐ cola questions │
+                                                     ▼                   ▼                │
+                                            worker (Celery)     worker-questions (Celery) ┘
+                                            Docling → chunks    recuperación → LLM
+                                            → embeddings        → validación
+                                                     └─────────┬─────────┘
+                                                               ▼
+                                              LLM gateway (LiteLLM → Gemini | mock)
 
-api, worker ──OTLP──▶ otel-collector ──▶ Jaeger (:16686)  |  Datadog (OTEL_COLLECTOR_CONFIG=datadog)
+api, worker, worker-questions ──OTLP──▶ otel-collector ──▶ Jaeger (:16686)  |  Datadog (OTEL_COLLECTOR_CONFIG=datadog)
 ```
 
 Las preguntas también pasan por Celery: `POST /api/questions` guarda la pregunta como `pending`, encola
@@ -39,8 +43,10 @@ Las preguntas también pasan por Celery: `POST /api/questions` guarda la pregunt
 cruza literalmente API → Celery → recuperación → LLM (ver DECISIONS.md).
 
 Servicios de `docker-compose.yml`: `postgres` (pgvector 0.8.7, PG 17), `redis`, `api` (aplica
-`alembic upgrade head` al arrancar), `worker` (misma imagen, `celery worker` con pool prefork), `frontend`,
-`otel-collector` y `jaeger`.
+`alembic upgrade head` al arrancar), `worker` (misma imagen, `celery worker` con pool prefork, cola de
+ingesta), `worker-questions` (cola `questions`: una ingesta larga no deja a nadie esperando una respuesta),
+`frontend`, `otel-collector` y `jaeger`. `api` y los dos workers se reinician solos si mueren
+(`restart: unless-stopped`).
 
 ## Requisitos
 
@@ -175,7 +181,7 @@ docker compose exec postgres psql -U tramontana -d tramontana -c \
 docker compose exec postgres psql -U tramontana -d tramontana -c \
   "select left(text_redacted, 300) from chunks c join documents d on d.id = c.document_id
     where d.doc_type = 'claim_letter'"          # DNI, IBAN, teléfono y email como [DNI], [IBAN], …
-docker compose logs api worker | grep -c 12345678Z   # 0: el DNI de la carta no aparece en los logs
+docker compose logs api worker worker-questions | grep -c 12345678Z   # 0: el DNI de la carta no aparece en los logs
 ```
 
 **3. PDF corrupto.** `corrupto.pdf` empieza por `%PDF-`, así que pasa la validación de subida (202). El worker
@@ -315,3 +321,9 @@ Todos los requisitos de la prueba:
   límite de nginx.
 - Una pregunta podría procesarse dos veces si la cola acumula más de 10 min de retraso y además muere un
   worker; el resultado se sobrescribe, sin otro efecto.
+- **Si el proceso hijo de `worker-questions` muere a mitad de una pregunta** (OOM, kill), Celery la reentrega
+  enseguida, pero la fila sigue `processing` con menos de 10 min y la reentrega se descarta. La pregunta se
+  queda `processing` y la UI en "Buscando…"; hay que volver a preguntar. Corregirlo pide un token de dueño
+  también para preguntas (migración nueva).
+- Un documento cuya ingesta mata al worker (p. ej. OOM de Docling en un escaneo enorme) se reentrega; tras
+  5 intentos queda `failed` / `ingestion_error` en vez de reintentarse para siempre. `/retry` da otros 5.
