@@ -56,12 +56,13 @@ def replace_chunks(
             ordinal=draft.ordinal,
             kind=draft.kind,
             text=draft.text,
-            text_redacted=redact(sanitize_untrusted(draft.text)),
+            # The model sees what is embedded: heading path + text, or a table row loses its meaning.
+            text_redacted=redact(sanitize_untrusted(draft.embed_text)),
             headings=draft.headings,
             page_start=draft.page_start,
             page_end=draft.page_end,
             embedding=embedding,
-            suspicious=looks_like_injection(draft.text),
+            suspicious=looks_like_injection(draft.embed_text),
         )
         for draft, embedding in zip(drafts, embeddings, strict=True)
     )
