@@ -8,6 +8,7 @@ import httpx
 import litellm
 import pytest
 from litellm.router import Router
+from litellm.types.router import RouterRateLimitError
 from opentelemetry.trace import StatusCode
 from pydantic import BaseModel
 
@@ -167,6 +168,16 @@ def test_provider_errors_mapped(monkeypatch: pytest.MonkeyPatch, error: Exceptio
     with pytest.raises(ProviderUnavailableError) as exc:
         gw.complete_json([{"role": "user", "content": "hola"}], Answer)
     assert exc.value.retry_after is None
+
+
+def test_router_cooldown_is_provider_unavailable_with_its_wait() -> None:
+    # Every deployment cooling down after 429s: the Router raises this ValueError subclass.
+    def cooling_down() -> None:
+        raise RouterRateLimitError(FLASH, 42.0, False, [])
+
+    with pytest.raises(ProviderUnavailableError) as exc:
+        LiteLLMGateway._call(cooling_down)
+    assert exc.value.retry_after == 42.0
 
 
 def test_retry_after_header_is_kept() -> None:

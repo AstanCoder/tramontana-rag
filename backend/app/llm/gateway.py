@@ -20,6 +20,7 @@ from litellm.exceptions import (
     Timeout,
 )
 from litellm.router import Router
+from litellm.types.router import RouterRateLimitError
 from opentelemetry import trace
 from pydantic import BaseModel
 
@@ -46,6 +47,8 @@ _PROVIDER_ERRORS = (
     AuthenticationError,
     PermissionDeniedError,
     NotFoundError,
+    # Every deployment in cooldown after 429s; it is a ValueError, not a litellm exception.
+    RouterRateLimitError,
 )
 
 
@@ -108,6 +111,8 @@ def _provider(model: str) -> str:
 
 
 def _retry_after(exc: Exception) -> float | None:
+    if isinstance(exc, RouterRateLimitError):
+        return exc.cooldown_time
     headers = getattr(getattr(exc, "response", None), "headers", None)
     try:
         return float(headers["retry-after"]) if headers else None
