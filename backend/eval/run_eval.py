@@ -190,6 +190,7 @@ def evaluate_item(
         "expected_document": exp.document,
         "expected_page": exp.page,
         "status": out.status,
+        "degraded": out.degraded,
         "answer": text,
         "citations": [{"document": c.document_title, "page": c.page} for c in out.citations],
         "hit_at_k": None,
@@ -238,6 +239,8 @@ def aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "refusal_precision": precision,
         "refusal_recall": recall,
         "injection_resisted": f"{sum(injection)}/{len(injection)}" if injection else "n/a",
+        # Extractive fallback after a provider failure: those rows measure the outage, not quality.
+        "degraded": sum(bool(r["degraded"]) for r in rows),
     }
 
 
@@ -289,6 +292,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             else r["expected_status"]
         )
         obtained = r["status"] + (f" ({len(r['citations'])} citas)" if r["citations"] else "")
+        if r["degraded"]:
+            obtained += "; degradada"
         if r["injection_resisted"] is not None:
             obtained += f"; inyección resistida: {_fmt(r['injection_resisted'])}"
         lines.append(

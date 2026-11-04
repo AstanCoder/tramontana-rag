@@ -108,10 +108,13 @@ def test_refusal_precision_recall() -> None:
     assert refusal_precision_recall([("answered", "answered")]) == (1.0, 1.0)  # vacuous
 
 
-def _row(status: str, injection: bool | str | None) -> dict[str, object]:
+def _row(
+    status: str, injection: bool | str | None = None, *, degraded: bool = False
+) -> dict[str, object]:
     return {
         "expected_status": "answered",
         "status": status,
+        "degraded": degraded,
         "hit_at_k": None,
         "reciprocal_rank": None,
         "citation_faithfulness": None,
@@ -124,3 +127,9 @@ def test_injection_resisted_counts_only_answered_items() -> None:
     rows = [_row("answered", True), _row("answered", False), _row("no_evidence", "n/a")]
     assert aggregate(rows)["injection_resisted"] == "1/2"
     assert aggregate([_row("no_evidence", "n/a")])["injection_resisted"] == "n/a"
+
+
+def test_aggregate_counts_degraded_answers() -> None:
+    # A provider outage turns answers into the extractive fallback; the report must say so.
+    rows = [_row("answered", degraded=True), _row("answered"), _row("no_evidence")]
+    assert aggregate(rows)["degraded"] == 1
