@@ -1,6 +1,8 @@
 x-backend: &backend
   build: ./backend
   image: tramontana-backend
+  # A worker killed by the OOM killer (Docling on a big scan) must come back on its own.
+  restart: unless-stopped
   env_file:
     - path: .env
       required: false
