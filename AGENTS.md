@@ -23,24 +23,15 @@ código discrepan, manda el código; corrige este documento.
 
 Todos los requisitos del enunciado están implementados, revisados y verificados (ver `README.md`, secciones
 "Qué está hecho" y "Limitaciones conocidas"). CI en verde. Se hizo un smoke test con `docker compose` desde un
-clon limpio.
+clon limpio. El camino Gemini se verificó de extremo a extremo el 2026-11-04 con una key de prueba (eval,
+API, UI y trazas; ver DECISIONS.md, "Uso de IA generativa").
 
 Trabajo pendiente, por prioridad:
 
-1. **Ejecutar el camino Gemini de extremo a extremo.** Requiere `.env` con `LLM_PROVIDER=litellm` y
-   `GEMINI_API_KEY` (la crea el usuario; nunca se pega en el chat ni se commitea).
-   1. Listar los modelos disponibles para la key y ajustar `LLM_MODEL`, `LLM_FALLBACK_MODELS` y
-      `EMBEDDING_MODEL` en `.env.example` si hace falta.
-   2. Ejecutar `docker compose down -v` y después el eval con `GIT_SHA` (comando en la §4).
-   3. Calibrar `EVIDENCE_MIN_SIMILARITY` para LiteLLM. Regla: el valor más bajo con precisión de rechazos 1.0
-      que no rechace preguntas respondibles. Ajustar el default por proveedor en `backend/app/config.py`.
-   4. Commitear el reporte real (`backend/eval/report.md` y `report.json`).
-   5. Verificar en Jaeger: `gen_ai.*`, `llm.fallback_used` (forzar con `LLM_MODEL=gemini/does-not-exist`) y
-      `question.model`/`provider`.
-   6. Actualizar las listas de "sin verificar" en `README.md` y `DECISIONS.md` con lo observado. Incluye qué
-      error devuelve Gemini ante una key inválida: si es HTTP 400, mapearlo o documentarlo.
-2. **Pregunta atascada tras la muerte del worker** (DECISIONS §7): token de dueño para preguntas, como en los
+1. **Pregunta atascada tras la muerte del worker** (DECISIONS §7): token de dueño para preguntas, como en los
    documentos, con una migración nueva.
+2. **Repetir el eval con el modelo principal** cuando `gemini-3.5-flash` no esté saturado (el reporte
+   actual lo respondió entero el fallback). Con una key en `.env`; nunca se pega en el chat ni se commitea.
 3. **Opcionales de baja prioridad**, detectados en revisión y no bloqueantes:
    - etiquetas de imágenes con patch flotante (`redis`, `node`, `nginx`);
    - `useDocuments` sigue haciendo polling tras un error si hay filas pendientes en caché;
@@ -204,8 +195,8 @@ El proyecto se construyó con *subagent-driven development*. Si se retoma con el
 
 - Secretos solo por variables de entorno. `.env` está en `.gitignore`. No escribir claves en código, tests,
   logs, commits ni en el chat.
-- Antes de cada push, ejecutar `git grep -nE 'AIza[0-9A-Za-z_-]{20,}|sk-[A-Za-z0-9]{20,}'`; el resultado
-  debe salir vacío.
+- Antes de cada push, ejecutar `git grep -nE 'AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_-]{20,}|sk-[A-Za-z0-9]{20,}'`
+  (`AQ.` es el formato de las keys nuevas de Gemini); el resultado debe salir vacío.
 - Validar en la frontera de confianza: tipo y magic bytes del PDF, tamaño (`MAX_UPLOAD_MB`), páginas
   (`MAX_PAGES`) y longitud y caracteres de la pregunta.
 - Los documentos subidos son contenido no confiable. Ver `DECISIONS.md` §13 (defensa por capas) y el sample
@@ -235,4 +226,4 @@ El proyecto se construyó con *subagent-driven development*. Si se retoma con el
 | `docs/design.md` | especificación aprobada (histórica) |
 | `docs/plan.md` | plan por tareas y restricciones globales (histórico) |
 | `samples/README.md` | datos y páginas clave de cada PDF de ejemplo |
-| `backend/eval/report.md` | último reporte de evaluación (actualmente del proveedor mock) |
+| `backend/eval/report.md` | último reporte de evaluación (Gemini, 2026-11-04) |

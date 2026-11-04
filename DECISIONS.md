@@ -9,7 +9,8 @@ ella, este documento lo explica.
 **Decisión.**
 - Chunks por estructura con el `HybridChunker` de Docling: máximo 512 tokens con el tokenizer de
   `all-MiniLM-L6-v2`, sin solape fijo.
-- Cada chunk se embebe con su ruta de encabezados delante (`contextualize`).
+- Cada chunk se embebe con su ruta de encabezados delante (`contextualize`), y ese mismo texto (redactado) es
+  el que ve el LLM y el que se revisa en busca de inyecciones.
 - Las tablas van en markdown, con la cabecera repetida si se parten.
 - Cada chunk guarda `page_start`/`page_end`.
 - Recuperación híbrida:
@@ -60,13 +61,14 @@ en serie:
    - Si se descartó alguna → `confidence=low`.
    - Una respuesta vacía, con URLs o HTML, o de más de 2000 caracteres → se descarta.
 
-**Umbral por proveedor.** `EVIDENCE_MIN_SIMILARITY` sin definir vale 0,40 con mock y 0,55 con Gemini.
+**Umbral por proveedor.** `EVIDENCE_MIN_SIMILARITY` sin definir vale 0,40 con mock y 0,62 con Gemini.
 - Los vectores del mock son hashing de palabras y también puntúan por stopwords compartidas. Medido sobre el
   eval: las preguntas con respuesta puntúan ≥ 0,43 y las fuera de dominio ("veterinario de mi mascota") ≤ 0,38.
   Por eso 0,40.
-- El 0,55 de Gemini es un valor inicial **sin calibrar**: no hubo key durante el desarrollo. El criterio es el
-  umbral más bajo con el que el eval rechaza todas sus preguntas sin evidencia (refusal recall = 1), aceptando
-  la precisión de rechazo que resulte.
+- El 0,62 de Gemini se midió con `gemini-embedding-001` sobre el eval: las preguntas con respuesta puntúan
+  ≥ 0,687 y las fuera de dominio ≤ 0,603 (otra vez el veterinario). Criterio: el umbral más bajo que rechaza en
+  la puerta todas las preguntas sin evidencia sin rechazar ninguna con respuesta. Con el 0,55 inicial el
+  veterinario pasaba la puerta y solo lo frenaba el LLM.
 
 **Por qué el AND/identificador en el full-text.** La primera versión aceptaba cualquier hit full-text. Con
 semántica OR, una palabra común ("póliza", "cubre") abría la puerta a casi cualquier pregunta, y el umbral era
@@ -295,8 +297,8 @@ un duplicado; el token sí.
 - Un documento atascado espera 20 min antes de poder reintentarse.
 - Si LiteLLM devuelve una key inválida como error de autenticación, la ingesta agota sus reintentos (~3,5 min)
   antes de quedar `failed` / `provider_unavailable`. Distinguir error de autenticación de error transitorio era
-  más código para un caso de configuración. No está comprobado con Gemini real: si responde con un HTTP 400
-  genérico, ese error no está mapeado y el documento queda `failed` / `ingestion_error` sin reintentos.
+  más código para un caso de configuración. Comprobado con Gemini real: responde a una key inválida con
+  HTTP 400 "API key not valid", que LiteLLM convierte en `AuthenticationError`, ya mapeado.
 
 **Cómo se mide.** Tests de integración contra Postgres real:
 - claim con el mismo y con otro `task_id`;
@@ -467,13 +469,36 @@ verificó leyendo o ejecutando el código antes de corregirlo):
   unless-stopped` y job `docker compose build`.
 - DECISIONS §7 daba por recuperable una pregunta cuyo worker muere; no lo es → documentado como limitación.
 
+Ejecución con Gemini real (key de prueba, 2026-11-04; pruebas manuales por API y UI y eval completo):
+- `gemini-2.5-flash` y `-lite` devuelven 404 a las keys nuevas ("no longer available to new users") → defaults
+  `gemini-3.5-flash` y `gemini-3.5-flash-lite`.
+- Gemini responde a un alias con la versión concreta servida (`gemini-3.5-flash` → `gemini-3.6-flash`). El
+  gateway detectaba el fallback comparando ese nombre con los configurados: todas las respuestas salían como
+  fallback y con proveedor `unknown` → el deployment que respondió se lee de `litellm_model_name`, que el
+  Router deja en la respuesta.
+- `import litellm` llama a `load_dotenv()`: con un `.env` local, la key real y `LLM_PROVIDER=litellm` entraban
+  en `os.environ` de los tests y de cualquier proceso → `LITELLM_MODE=PRODUCTION` en `app/__init__.py`.
+- El LLM recibía el chunk sin sus encabezados. En el escaneado, "Capital: 70.000.000 €" llegaba sin
+  "Responsabilidad civil obligatoria" y Gemini rechazaba con razón (con el mock pasaba por coincidencia de
+  palabras) → el texto del modelo es el contextualizado (§1).
+- Preguntado por la primera versión de la póliza, citaba el chunk de la v1 (600 €) pero respondía 450 €: los
+  bloques no decían de qué versión eran → cada bloque lleva `fecha` y `vigente`, que pone el servidor.
+- Umbral de Gemini calibrado (§2).
+- Observado, sin cambio de código:
+  - `gemini-3.5-flash` devolvió 503 "high demand" en buena parte de las llamadas (y en todo el eval, que
+    respondió entero con `flash-lite`). Google tarda hasta ~30 s en dar ese 503; con fallback, una respuesta
+    tarda 15–50 s. Medido: quitar los reintentos del Router para 503 y timeouts no cambia la latencia (~17 s
+    en ambos casos), así que se mantiene la configuración.
+  - En q08, `flash-lite` da la fecha de la carta (10 de marzo) en vez de la del siniestro (8 de marzo).
+  - q05 responde "150 euros" y la keyword es "150 €": el recall de keywords subestima.
+
 Descartado
 - `httpx2`, el paquete al que empuja un aviso de Starlette: no verificado. Se mantuvo `httpx` y se filtró solo
   ese aviso.
 - IVFFlat (§6), SSE (§8), reemplazar versiones (§3), NER en el MVP (§4).
 - Una puerta de evidencia basada solo en la similitud o solo en el full-text (§2).
 
-**Lo que queda pendiente por no tener key.**
-- Ejecutar el eval con Gemini y calibrar el 0,55.
-- Verificar con el modelo real la salida estructurada, los tokens, la detección de fallback y qué error
-  devuelve Gemini ante una key inválida.
+**Verificado con Gemini real** (antes pendiente por no tener key): salida estructurada con el esquema
+Pydantic, `dimensions=768` en embeddings, tokens y `gen_ai.*` en las trazas, detección de fallback, receta de
+modo degradado y error ante una key inválida. Queda sin ver el eval completo con el modelo principal, que
+estuvo saturado durante toda la ejecución.

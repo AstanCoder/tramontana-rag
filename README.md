@@ -107,7 +107,7 @@ se pueden pasar desde la shell o desde `.env`; el resto solo se lee de `.env`.
 | `LLM_TIMEOUT_S` | `30` | Timeout por llamada al proveedor. |
 | `LLM_NUM_RETRIES` | `2` | Reintentos de LiteLLM por llamada (completions y embeddings). |
 | `EMBED_BATCH_SIZE` | `50` | Textos por llamada de embeddings. |
-| `EVIDENCE_MIN_SIMILARITY` | sin definir | Similitud coseno mínima para que un hit vectorial cuente como evidencia. Sin definir: `0.40` con mock, `0.55` con litellm. |
+| `EVIDENCE_MIN_SIMILARITY` | sin definir | Similitud coseno mínima para que un hit vectorial cuente como evidencia. Sin definir: `0.40` con mock, `0.62` con litellm (ambos medidos sobre el eval). |
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:8080` | Orígenes permitidos, separados por comas. |
 | `OTEL_SDK_DISABLED` | `true` | Desactiva el tracing. Compose lo pone a `false`. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | vacío | Endpoint OTLP gRPC. Compose: `http://otel-collector:4317`. |
@@ -203,9 +203,9 @@ texto "No se pudo generar una respuesta en este momento…" y los tres mejores f
 muestra un aviso de modo degradado y el span `answer.validate` lleva `llm.fallback_used=extractive`.
 
 Con una **key inválida** no hay modo degradado: sin embeddings de la pregunta no hay recuperación, así que la
-pregunta acaba `failed` y la UI enseña el mensaje y el `trace_id`. Se espera `error_code=provider_unavailable`
-(el gateway mapea los errores de autenticación de LiteLLM), pero no está comprobado con Gemini real: si Gemini
-responde a una key inválida con un HTTP 400 genérico, el error no está mapeado y quedaría `answer_error`.
+pregunta acaba `failed` con `error_code=provider_unavailable`, y la UI enseña el mensaje y el `trace_id`.
+Comprobado con Gemini real: responde HTTP 400 "API key not valid", que LiteLLM convierte en un error de
+autenticación, ya mapeado.
 
 **5. La traza.** `GET /api/questions/{id}` devuelve el `trace_id`. En Jaeger, buscarlo (o elegir el servicio
 `tramontana-api` y la operación `POST /api/questions`). La traza contiene:
@@ -255,8 +255,8 @@ Ingesta los samples (salvo `corrupto.pdf`), responde cada pregunta con el mismo 
 - precisión y recall de rechazos;
 - resistencia a la inyección, que solo se puntúa si la pregunta se responde.
 
-El proveedor es el de `.env`. El reporte incluido es del **mock**: valida el arnés, no la calidad del sistema
-(ver limitaciones).
+El proveedor es el de `.env`. El reporte incluido es de **Gemini** (`gemini-embedding-001` y, por la
+saturación del modelo principal durante la ejecución, todas las respuestas de `gemini-3.5-flash-lite`).
 
 ## Qué está hecho
 
@@ -285,19 +285,12 @@ Todos los requisitos de la prueba:
 
 ## Limitaciones conocidas
 
-- **El camino Gemini no se ha ejecutado de extremo a extremo en la verificación de este repo** (no había key
-  durante el desarrollo). Sin probar con Gemini real:
-  - `response_format` con el esquema Pydantic;
-  - `dimensions=768` en los embeddings;
-  - la detección de `fallback_used` por el nombre de modelo de la respuesta;
-  - los atributos de tokens;
-  - la receta de modo degradado;
-  - el comportamiento con una key inválida (se espera `failed` / `provider_unavailable` en preguntas e
-    ingesta, pero un HTTP 400 genérico de Gemini acabaría en `answer_error` / `ingestion_error`).
-
-  El reporte de eval incluido es del mock (keyword_recall 0,45; el mock no redacta respuestas).
-- **El umbral 0,55 para Gemini no está calibrado**: es un valor inicial. El 0,40 del mock sí se midió sobre el
-  eval. Calibrarlo es una ejecución del eval con key (ver DECISIONS.md).
+- **`gemini-3.5-flash` se satura a menudo** (503 "high demand"). Responde el fallback `flash-lite`, pero la
+  pregunta tarda 15–50 s porque Google tarda en devolver el 503. Las respuestas con fallback llevan
+  `llm.fallback_used=true` en la traza.
+- Los umbrales de evidencia se calibraron con 13 preguntas: hay 0,07 de margen entre la pregunta fuera de
+  dominio más parecida (0,603) y la respondible menos parecida (0,687). Con más documentos conviene volver a
+  medirlos.
 - **Una pregunta con un número de 3+ cifras** (año, importe, nº de póliza) da por buena cualquier
   coincidencia full-text como evidencia. Una pregunta fuera de dominio con un año puede llegar al LLM; siguen
   actuando el `no_evidence` del LLM y el validador de citas.
