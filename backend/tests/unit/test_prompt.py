@@ -1,5 +1,7 @@
 import re
 import uuid
+from dataclasses import replace
+from datetime import date
 
 import pytest
 
@@ -12,6 +14,8 @@ def _hit(text: str) -> RetrievedChunk:
         chunk_id=uuid.uuid4(),
         document_id=uuid.uuid4(),
         document_title="Póliza",
+        document_date=None,
+        superseded=False,
         page_start=2,
         page_end=2,
         text_redacted=text,
@@ -31,7 +35,7 @@ def test_chunk_cannot_close_delimiter() -> None:
     messages = build_messages("¿Qué cubre?", [hit], "abc")
     user = messages[-1]["content"]
     assert user.count("</doc-abc>") == 1
-    assert f'<doc-abc id="{hit.chunk_id}" page="2">' in user
+    assert f'<doc-abc id="{hit.chunk_id}" page="2" vigente="sí">' in user
     assert user.splitlines()[-1] == "Pregunta: ¿Qué cubre?"
 
 
@@ -71,3 +75,20 @@ def test_nonce_differs_per_call() -> None:
 
     assert new_nonce() != new_nonce()
     assert len(new_nonce()) == 16
+
+
+def test_block_says_which_version_a_chunk_comes_from() -> None:
+    # Without it the model cannot tell "the first version" apart from the current one.
+    old = replace(_hit("deducible de 600 €"), document_date=date(2024, 1, 15), superseded=True)
+    current = replace(_hit("deducible de 450 €"), document_date=date(2025, 1, 15))
+    messages = build_messages("¿Qué deducible aplicaba la primera versión?", [old, current], "abc")
+    user = messages[-1]["content"]
+    assert f'<doc-abc id="{old.chunk_id}" page="2" fecha="2024-01-15" vigente="no">' in user
+    assert f'<doc-abc id="{current.chunk_id}" page="2" fecha="2025-01-15" vigente="sí">' in user
+    assert 'vigente="no"' in messages[0]["content"]
+
+
+def test_block_without_document_date_omits_it() -> None:
+    hit = _hit("texto")
+    user = build_messages("¿Qué cubre?", [hit], "abc")[-1]["content"]
+    assert f'<doc-abc id="{hit.chunk_id}" page="2" vigente="sí">' in user

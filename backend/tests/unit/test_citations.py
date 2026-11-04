@@ -20,6 +20,8 @@ def _hit(text: str, page: int = 2, page_end: int | None = None) -> RetrievedChun
         chunk_id=uuid.uuid4(),
         document_id=uuid.uuid4(),
         document_title="Póliza hogar",
+        document_date=None,
+        superseded=False,
         page_start=page,
         page_end=page_end or page,
         text_redacted=text,

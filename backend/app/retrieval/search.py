@@ -2,6 +2,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass
+from datetime import date
 
 from opentelemetry import trace
 from sqlalchemy import ColumnElement, Text, func, select, text
@@ -20,6 +21,8 @@ class RetrievedChunk:
     chunk_id: uuid.UUID
     document_id: uuid.UUID
     document_title: str
+    document_date: date | None
+    superseded: bool  # an older version: lets the model tell versions apart
     page_start: int
     page_end: int
     text_redacted: str
@@ -134,9 +137,9 @@ def search(
         fused = rrf_fuse([[cid for cid, _ in vector_hits], [cid for cid, _ in fts_hits]])
 
         rows = {
-            chunk.id: (chunk, title)
-            for chunk, title in session.execute(
-                select(Chunk, Document.title)
+            chunk.id: (chunk, document)
+            for chunk, document in session.execute(
+                select(Chunk, Document)
                 .join(Document, Chunk.document_id == Document.id)
                 .where(Chunk.id.in_([cid for cid, _ in fused]))
             )
@@ -145,7 +148,9 @@ def search(
             RetrievedChunk(
                 chunk_id=cid,
                 document_id=rows[cid][0].document_id,
-                document_title=rows[cid][1],
+                document_title=rows[cid][1].title,
+                document_date=rows[cid][1].document_date,
+                superseded=rows[cid][1].superseded_by_id is not None,
                 page_start=rows[cid][0].page_start,
                 page_end=rows[cid][0].page_end,
                 text_redacted=rows[cid][0].text_redacted,

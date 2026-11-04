@@ -19,6 +19,8 @@ def _hit(title: str, page: int, text: str = "texto", page_end: int | None = None
         chunk_id=uuid.uuid4(),
         document_id=uuid.uuid4(),
         document_title=title,
+        document_date=None,
+        superseded=False,
         page_start=page,
         page_end=page_end or page,
         text_redacted=text,
