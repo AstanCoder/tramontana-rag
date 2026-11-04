@@ -56,7 +56,7 @@ def replace_chunks(
             ordinal=draft.ordinal,
             kind=draft.kind,
             text=draft.text,
-            # The model sees what is embedded: heading path + text, or a table row loses its meaning.
+            # The model sees what is embedded (heading path + text): a table row needs its heading.
             text_redacted=redact(sanitize_untrusted(draft.embed_text)),
             headings=draft.headings,
             page_start=draft.page_start,
