@@ -20,7 +20,7 @@ def test_csv_env_vars_are_split(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.parametrize(
     ("provider", "override", "expected"),
-    [("litellm", None, 0.55), ("mock", None, 0.40), ("litellm", 0.7, 0.7), ("mock", 0.7, 0.7)],
+    [("litellm", None, 0.62), ("mock", None, 0.40), ("litellm", 0.7, 0.7), ("mock", 0.7, 0.7)],
 )
 def test_evidence_threshold_resolves_per_provider_unless_set(
     provider: str, override: float | None, expected: float

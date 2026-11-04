@@ -39,14 +39,14 @@ class Settings(BaseSettings):
     def evidence_threshold(self) -> float:
         """Cosine floor for a vector hit to count as evidence.
 
-        0.55 for real embeddings (design §9). The mock's hashed bag-of-words vectors also score
-        stopword overlap, so the same floor would refuse half the in-domain eval questions; 0.40
-        is calibrated on the samples: answerable questions score >= 0.43, off-domain ones sharing
-        a common word ("¿Cubre la póliza al veterinario de mi perro?") <= 0.38.
+        Both calibrated on the eval samples. gemini-embedding-001: answerable questions score
+        >= 0.687, off-domain ones <= 0.603 ("¿Cubre el seguro los gastos del veterinario de mi
+        mascota?"), so 0.62. The mock's hashed bag-of-words vectors also score stopword overlap:
+        answerable >= 0.43, off-domain <= 0.38, so 0.40.
         """
         if self.evidence_min_similarity is not None:
             return self.evidence_min_similarity
-        return 0.40 if self.llm_provider == "mock" else 0.55
+        return 0.40 if self.llm_provider == "mock" else 0.62
 
     @field_validator("llm_fallback_models", "cors_origins", mode="before")
     @classmethod
