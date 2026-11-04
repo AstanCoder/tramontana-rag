@@ -7,7 +7,6 @@ QUESTION_MIN_LEN = 3
 QUESTION_MAX_LEN = 1000
 ANSWER_MAX_LEN = 2000
 
-_UNTRUSTED_CHARS_RE = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f​-‏⁠﻿]")
 _DOC_TAG_RE = re.compile(r"<\s*/?\s*doc-", re.IGNORECASE)
 # Tight on purpose: flagged chunks are excluded from retrieval, so false positives hide evidence.
 _ROLE = (
@@ -31,19 +30,38 @@ def has_control_chars(text: str) -> bool:
     return any(unicodedata.category(c) == "Cc" and c not in "\n\t" for c in text)
 
 
+def _is_invisible(c: str) -> bool:
+    category = unicodedata.category(c)
+    # Controls (except newline/tab), format chars (zero-width, soft hyphen, bidi, tag chars) and
+    # zero-width marks with no combining class (variation selectors, grapheme joiner).
+    return (category in ("Cc", "Cf") and c not in "\n\t") or (
+        category == "Mn" and not unicodedata.combining(c)
+    )
+
+
+def _strip_invisible(text: str, replacement: str = "") -> str:
+    return "".join(replacement if _is_invisible(c) else c for c in text)
+
+
 def sanitize_untrusted(text: str) -> str:
     # Strip invisible chars first so they cannot be used to split a `<doc-` tag.
-    text = _UNTRUSTED_CHARS_RE.sub("", text)
+    text = _strip_invisible(text)
     # Repeat until stable: removing one tag must not join its neighbours into a new one.
     while (cleaned := _DOC_TAG_RE.sub("", text)) != text:
         text = cleaned
     return text
 
 
-def looks_like_injection(text: str) -> bool:
+def _fold(text: str) -> str:
     folded = unicodedata.normalize("NFKD", text).casefold()
-    folded = "".join(c for c in folded if not unicodedata.combining(c))
-    return _INJECTION_RE.search(folded) is not None
+    return "".join(c for c in folded if not unicodedata.combining(c))
+
+
+def looks_like_injection(text: str) -> bool:
+    # An invisible char may split a word ("Ig\u200bnora") or stand in for a space: try both.
+    return any(
+        _INJECTION_RE.search(_fold(_strip_invisible(text, sep))) is not None for sep in ("", " ")
+    )
 
 
 def validate_question(text: str) -> str:
