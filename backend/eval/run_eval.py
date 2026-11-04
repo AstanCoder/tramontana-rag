@@ -270,7 +270,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         ]
     lines += [
         f"- Proveedor: `{meta['provider']}`",
-        f"- Modelo: `{meta['model']}`",
+        f"- Modelos: `{meta['model']}`",
         f"- Fecha: {meta['date']}",
         f"- Commit base: `{meta['git_sha']}`",
         f"- Elementos: {len(report['items'])}",
@@ -326,7 +326,9 @@ def run(
     report = {
         "meta": {
             "provider": first["provider"] if first else settings.llm_provider,
-            "model": first["model"] if first else settings.llm_model,
+            # Primary and fallback can both answer in one run: list every model that did.
+            "model": ", ".join(sorted({r["model"] for r in rows if r["model"]}))
+            or settings.llm_model,
             "date": datetime.now(UTC).date().isoformat(),
             "git_sha": os.environ.get("GIT_SHA", "desconocido"),
         },
