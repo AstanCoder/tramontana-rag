@@ -101,8 +101,8 @@ se pueden pasar desde la shell o desde `.env`; el resto solo se lee de `.env`.
 | `MAX_PAGES` | `200` | Páginas máximas; si se supera, el documento queda `failed` / `too_many_pages`. |
 | `LLM_PROVIDER` | `mock` | `mock` (sin red) o `litellm` (Gemini real). |
 | `GEMINI_API_KEY` | vacío | Key de Google AI Studio. Solo con `litellm`. |
-| `LLM_MODEL` | `gemini/gemini-2.5-flash` | Modelo principal (nombre LiteLLM). |
-| `LLM_FALLBACK_MODELS` | `gemini/gemini-2.5-flash-lite` | Fallbacks separados por comas; vacío = sin fallback. |
+| `LLM_MODEL` | `gemini/gemini-3.5-flash` | Modelo principal (nombre LiteLLM). |
+| `LLM_FALLBACK_MODELS` | `gemini/gemini-3.5-flash-lite` | Fallbacks separados por comas; vacío = sin fallback. |
 | `EMBEDDING_MODEL` | `gemini/gemini-embedding-001` | Modelo de embeddings (se piden 768 dimensiones). |
 | `LLM_TIMEOUT_S` | `30` | Timeout por llamada al proveedor. |
 | `LLM_NUM_RETRIES` | `2` | Reintentos de LiteLLM por llamada (completions y embeddings). |

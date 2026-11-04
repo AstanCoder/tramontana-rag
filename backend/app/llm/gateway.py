@@ -173,9 +173,9 @@ class LiteLLMGateway:
             response = self._call(
                 self._router.completion, model=primary, messages=messages, response_format=schema
             )
-            # The response carries the bare model name (no provider prefix).
-            used = next((m for m in self._models if m.split("/")[-1] == response.model), None)
-            used = used or response.model
+            # response.model is the version served (an alias may answer as a newer one); the router
+            # records which configured deployment answered.
+            used = response._hidden_params.get("litellm_model_name") or response.model
             meta = CompletionMeta(
                 model=response.model,
                 provider=_provider(used),

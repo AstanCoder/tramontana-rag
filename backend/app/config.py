@@ -17,8 +17,8 @@ class Settings(BaseSettings):
 
     llm_provider: Literal["mock", "litellm"] = "mock"
     gemini_api_key: SecretStr = SecretStr("")
-    llm_model: str = "gemini/gemini-2.5-flash"
-    llm_fallback_models: Annotated[list[str], NoDecode] = ["gemini/gemini-2.5-flash-lite"]
+    llm_model: str = "gemini/gemini-3.5-flash"
+    llm_fallback_models: Annotated[list[str], NoDecode] = ["gemini/gemini-3.5-flash-lite"]
     embedding_model: str = "gemini/gemini-embedding-001"
     llm_timeout_s: int = 30
     llm_num_retries: int = 2

@@ -23,8 +23,8 @@ from app.llm.gateway import (
 )
 from app.llm.mock import MockGateway
 
-FLASH = "gemini/gemini-2.5-flash"
-FLASH_LITE = "gemini/gemini-2.5-flash-lite"
+FLASH = "gemini/gemini-3.5-flash"
+FLASH_LITE = "gemini/gemini-3.5-flash-lite"
 
 
 class Citation(BaseModel):
@@ -128,6 +128,25 @@ def test_litellm_primary_not_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     assert meta.input_tokens > 0 and meta.output_tokens > 0
 
 
+def test_served_model_version_is_not_a_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Gemini answers an alias with the concrete version it served (gemini-3.5-flash → 3.6-flash).
+    gw = _litellm_gateway(monkeypatch, mock_response='{"a": 1}')
+    completion = gw._router.completion
+
+    def served_as_newer_version(**kwargs: object) -> object:
+        response = completion(**kwargs)
+        response.model = "gemini-9.9-flash"
+        return response
+
+    monkeypatch.setattr(gw._router, "completion", served_as_newer_version)
+
+    class Out(BaseModel):
+        a: int
+
+    _, meta = gw.complete_json([{"role": "user", "content": "hola"}], Out)
+    assert (meta.model, meta.provider, meta.fallback_used) == ("gemini-9.9-flash", "gemini", False)
+
+
 def test_litellm_fallback_used(monkeypatch: pytest.MonkeyPatch) -> None:
     gw = _litellm_gateway(monkeypatch, mock_response='{"a": 1}', mock_testing_fallbacks=True)
 
@@ -137,7 +156,7 @@ def test_litellm_fallback_used(monkeypatch: pytest.MonkeyPatch) -> None:
     result, meta = gw.complete_json([{"role": "user", "content": "hola"}], Out)
     assert result.a == 1
     assert meta.fallback_used is True
-    assert meta.model == "gemini-2.5-flash-lite"
+    assert meta.model == "gemini-3.5-flash-lite"
 
 
 def test_invalid_json_raises_output_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
